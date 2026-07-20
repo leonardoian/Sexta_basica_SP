@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BOMs — Planej. Compras</title>
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<header class="topbar" id="topbar"></header>
+<main>
+  <div class="card">
+    <h2>Selecionar acabado</h2>
+    <select id="sel-acabado" style="max-width: 400px"></select>
+  </div>
+
+  <div class="card" id="card-bom" style="display:none">
+    <h2>Lista técnica (BOM)</h2>
+
+    <div class="row" style="margin-bottom: 16px">
+      <div>
+        <label>Importar planilha</label>
+        <input type="file" id="input-importar" accept=".xlsx,.xls,.csv">
+      </div>
+      <span class="muted" id="msg-importar"></span>
+    </div>
+
+    <form id="form-item" class="row" style="margin-bottom: 16px">
+      <div style="flex: 1; min-width: 220px">
+        <label>Componente</label>
+        <select id="sel-componente" required></select>
+      </div>
+      <div style="width: 160px">
+        <label>Peças por UMC</label>
+        <input type="number" id="input-pcs" min="0" step="any" placeholder="ex: 6" required>
+      </div>
+      <button type="submit">Adicionar</button>
+    </form>
+
+    <p class="erro" id="erro" style="display:none"></p>
+
+    <table>
+      <thead>
+        <tr><th>Componente</th><th>Descrição</th><th>UMC</th><th>Peças por UMC</th><th></th></tr>
+      </thead>
+      <tbody id="tbody"></tbody>
+    </table>
+    <p class="muted" id="vazio" style="display:none">Nenhum componente na BOM ainda.</p>
+  </div>
+</main>
+<script src="/app.js"></script>
+<script>
+  let bomId = null;
+  let acabadoAtual = null;
+
+  async function carregarAcabados() {
+    const acabados = await api("/api/materiais?tipo=acabado");
+    const sel = document.getElementById("sel-acabado");
+    sel.innerHTML =
+      `<option value="">Escolha o material acabado</option>` +
+      acabados.map((a) => `<option value="${a.id}" data-codigo="${a.codigo}">${a.codigo} — ${a.descricao}</option>`).join("");
+
+    const params = new URLSearchParams(window.location.search);
+    const materialId = params.get("materialId");
+    if (materialId) {
+      sel.value = materialId;
+      await carregarBom(materialId);
+    }
+  }
+
+  async function carregarComponentes() {
+    const componentes = await api("/api/materiais?tipo=componente");
+    document.getElementById("sel-componente").innerHTML = componentes
+      .map((c) => `<option value="${c.id}">${c.codigo} — ${c.descricao}</option>`)
+      .join("");
+  }
+
+  async function carregarBom(materialId) {
+    document.getElementById("card-bom").style.display = materialId ? "block" : "none";
+    if (!materialId) return;
+
+    const sel = document.getElementById("sel-acabado");
+    const opt = sel.querySelector(`option[value="${materialId}"]`);
+    acabadoAtual = opt ? opt.dataset.codigo : null;
+
+    const bom = await api("/api/boms", {
+      method: "POST",
+      body: JSON.stringify({ materialId }),
+    });
+    bomId = bom.id;
+    await renderItens();
+  }
+
+  async function renderItens() {
+    const itens = await api(`/api/bom-itens?bomId=${bomId}`);
+    document.getElementById("tbody").innerHTML = itens
+      .map(
+        (it) => `
+        <tr>
+          <td>${it.componente_codigo}</td>
+          <td>${it.componente_descricao}</td>
+          <td>${it.componente_umc}</td>
+          <td>${it.pcs_por_umc}</td>
+          <td><button class="ghost" onclick="removerItem(${it.id})">Remover</button></td>
+        </tr>`
+      )
+      .join("");
+    document.getElementById("vazio").style.display = itens.length ? "none" : "block";
+  }
+
+  async function removerItem(itemId) {
+    await api("/api/bom-itens", { method: "DELETE", body: JSON.stringify({ itemId }) });
+    await renderItens();
+  }
+
+  document.getElementById("sel-acabado").addEventListener("change", (e) => {
+    carregarBom(e.target.value);
+  });
+
+  document.getElementById("form-item").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const erroEl = document.getElementById("erro");
+    erroEl.style.display = "none";
+    try {
+      await api("/api/bom-itens", {
+        method: "POST",
+        body: JSON.stringify({
+          bomId,
+          componenteId: Number(document.getElementById("sel-componente").value),
+          pcsPorUmc: Number(document.getElementById("input-pcs").value),
+        }),
+      });
+      document.getElementById("input-pcs").value = "";
+      await renderItens();
+    } catch (err) {
+      erroEl.textContent = err.message;
+      erroEl.style.display = "block";
+    }
+  });
+
+  document.getElementById("input-importar").addEventListener("change", async (e) => {
+    const file = e.target.files[0];
+    const msgEl = document.getElementById("msg-importar");
+    if (!file || !acabadoAtual) return;
+    msgEl.textContent = "Importando...";
+    try {
+      const contentBase64 = await fileParaBase64(file);
+      const data = await api("/api/bom-importar", {
+        method: "POST",
+        body: JSON.stringify({ materialCodigo: acabadoAtual, contentBase64 }),
+      });
+      msgEl.textContent =
+        `${data.importados}/${data.total} componentes importados` +
+        (data.naoEncontrados.length ? ` — não encontrados: ${data.naoEncontrados.join(", ")}` : "");
+      await renderItens();
+    } catch (err) {
+      msgEl.textContent = err.message;
+    } finally {
+      e.target.value = "";
+    }
+  });
+
+  carregarAcabados();
+  carregarComponentes();
+</script>
+</body>
+</html>

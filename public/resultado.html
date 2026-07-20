@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Resultado — Planej. Compras</title>
+<link rel="stylesheet" href="/style.css">
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+</head>
+<body>
+<header class="topbar" id="topbar"></header>
+<main>
+  <div class="card">
+    <h2>Resultado do cálculo</h2>
+    <div class="row" style="justify-content: space-between">
+      <div style="max-width: 400px; flex: 1">
+        <select id="sel-programa">
+          <option value="">Escolha um programa</option>
+        </select>
+      </div>
+      <button id="btn-exportar" disabled>Exportar Excel</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <table>
+      <thead>
+        <tr>
+          <th>Componente</th>
+          <th>Descrição</th>
+          <th>UMC</th>
+          <th>Necessidade total</th>
+          <th>Estoque atual</th>
+          <th>A comprar</th>
+        </tr>
+      </thead>
+      <tbody id="tbody"></tbody>
+    </table>
+    <p class="muted" id="vazio">Escolha um programa para calcular.</p>
+  </div>
+</main>
+<script src="/app.js"></script>
+<script>
+  let linhasAtuais = [];
+  let programaNome = "";
+
+  async function carregarProgramas() {
+    const programas = await api("/api/programas");
+    const sel = document.getElementById("sel-programa");
+    sel.innerHTML =
+      `<option value="">Escolha um programa</option>` +
+      programas.map((p) => `<option value="${p.id}" data-nome="${p.nome}">${p.nome} (${p.status})</option>`).join("");
+
+    const params = new URLSearchParams(window.location.search);
+    const programaId = params.get("programaId");
+    if (programaId) {
+      sel.value = programaId;
+      await calcular(programaId);
+    }
+  }
+
+  async function calcular(programaId) {
+    if (!programaId) {
+      linhasAtuais = [];
+      renderTabela();
+      return;
+    }
+    const sel = document.getElementById("sel-programa");
+    const opt = sel.querySelector(`option[value="${programaId}"]`);
+    programaNome = opt ? opt.dataset.nome : programaId;
+
+    document.getElementById("vazio").textContent = "Calculando...";
+    linhasAtuais = await api(`/api/calculo?programaId=${programaId}`);
+    renderTabela();
+  }
+
+  function renderTabela() {
+    const tbody = document.getElementById("tbody");
+    tbody.innerHTML = linhasAtuais
+      .map((l) => {
+        const aComprar = Number(l.a_comprar);
+        return `
+          <tr class="${aComprar > 0 ? "a-comprar" : ""}">
+            <td>${l.componente_codigo}</td>
+            <td>${l.componente_descricao}</td>
+            <td>${l.umc}</td>
+            <td>${l.necessidade_total}</td>
+            <td>${l.estoque_atual}</td>
+            <td class="valor-comprar">${l.a_comprar}</td>
+          </tr>`;
+      })
+      .join("");
+    document.getElementById("vazio").textContent = linhasAtuais.length
+      ? ""
+      : "Nenhum componente calculado para este programa.";
+    document.getElementById("vazio").style.display = linhasAtuais.length ? "none" : "block";
+    document.getElementById("btn-exportar").disabled = linhasAtuais.length === 0;
+  }
+
+  document.getElementById("sel-programa").addEventListener("change", (e) => {
+    calcular(e.target.value);
+  });
+
+  document.getElementById("btn-exportar").addEventListener("click", () => {
+    const dados = linhasAtuais.map((l) => ({
+      Componente: l.componente_codigo,
+      Descrição: l.componente_descricao,
+      UMC: l.umc,
+      "Necessidade total": Number(l.necessidade_total),
+      "Estoque atual": Number(l.estoque_atual),
+      "A comprar": Number(l.a_comprar),
+    }));
+    const ws = XLSX.utils.json_to_sheet(dados);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Necessidade de compra");
+    XLSX.writeFile(wb, `necessidade-compra-${programaNome}.xlsx`);
+  });
+
+  carregarProgramas();
+</script>
+</body>
+</html>

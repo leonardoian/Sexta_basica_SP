@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Estoque — Planej. Compras</title>
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<header class="topbar" id="topbar"></header>
+<main>
+  <div class="card">
+    <h2>Estoque atual</h2>
+
+    <div class="row" style="margin-bottom: 16px">
+      <div>
+        <label>Importar planilha</label>
+        <input type="file" id="input-importar" accept=".xlsx,.xls,.csv">
+      </div>
+      <span class="muted" id="msg-importar"></span>
+    </div>
+
+    <table>
+      <thead>
+        <tr><th>Código</th><th>Descrição</th><th>UMC</th><th>Qtd. atual</th><th></th></tr>
+      </thead>
+      <tbody id="tbody"></tbody>
+    </table>
+    <p class="muted" id="vazio" style="display:none">Nenhum material cadastrado.</p>
+  </div>
+</main>
+<script src="/app.js"></script>
+<script>
+  async function carregar() {
+    const linhas = await api("/api/estoque");
+    document.getElementById("tbody").innerHTML = linhas
+      .map(
+        (l) => `
+        <tr data-material-id="${l.material_id}">
+          <td>${l.codigo}</td>
+          <td>${l.descricao}</td>
+          <td>${l.umc}</td>
+          <td style="width:140px"><input type="number" step="any" class="input-qtd" value="${l.qtd_atual}"></td>
+          <td><button onclick="salvar(${l.material_id})">Salvar</button></td>
+        </tr>`
+      )
+      .join("");
+    document.getElementById("vazio").style.display = linhas.length ? "none" : "block";
+  }
+
+  async function salvar(materialId) {
+    const linha = document.querySelector(`tr[data-material-id="${materialId}"]`);
+    const qtdAtual = linha.querySelector(".input-qtd").value;
+    const btn = linha.querySelector("button");
+    btn.disabled = true;
+    btn.textContent = "Salvando...";
+    try {
+      await api("/api/estoque", {
+        method: "POST",
+        body: JSON.stringify({ materialId, qtdAtual }),
+      });
+    } finally {
+      btn.disabled = false;
+      btn.textContent = "Salvar";
+    }
+  }
+
+  document.getElementById("input-importar").addEventListener("change", async (e) => {
+    const file = e.target.files[0];
+    const msgEl = document.getElementById("msg-importar");
+    if (!file) return;
+    msgEl.textContent = "Importando...";
+    try {
+      const contentBase64 = await fileParaBase64(file);
+      const data = await api("/api/estoque-importar", {
+        method: "POST",
+        body: JSON.stringify({ contentBase64 }),
+      });
+      msgEl.textContent =
+        `${data.atualizados}/${data.total} materiais atualizados` +
+        (data.naoEncontrados.length ? ` — não encontrados: ${data.naoEncontrados.join(", ")}` : "");
+      await carregar();
+    } catch (err) {
+      msgEl.textContent = err.message;
+    } finally {
+      e.target.value = "";
+    }
+  });
+
+  carregar();
+</script>
+</body>
+</html>

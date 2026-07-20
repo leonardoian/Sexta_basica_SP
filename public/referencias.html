@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Nova referência — Planej. Compras</title>
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<header class="topbar" id="topbar"></header>
+<main>
+  <form id="form-referencia">
+    <div class="card">
+      <h2>Referência (acabado)</h2>
+      <div class="grid cols-3">
+        <div>
+          <label for="codigo">Código</label>
+          <input id="codigo" placeholder="ex: 9057" required>
+        </div>
+        <div>
+          <label for="descricao">Descrição</label>
+          <input id="descricao" required>
+        </div>
+        <div>
+          <label for="umc">UMC</label>
+          <input id="umc" value="PC">
+        </div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top: 20px">
+      <h2>Lista técnica</h2>
+      <div id="itens"></div>
+      <button type="button" class="secondary" id="btn-add-item" style="margin-top: 8px">+ Adicionar item</button>
+    </div>
+
+    <p class="erro" id="erro" style="display:none; margin-top: 12px"></p>
+    <button type="submit" id="btn-salvar" style="margin-top: 16px">Salvar referência e lista técnica</button>
+  </form>
+</main>
+<script src="/app.js"></script>
+<script>
+  const NOVO_COMPONENTE = "__novo__";
+  let componentes = [];
+  let itemCount = 0;
+
+  function novaLinha() {
+    const idx = itemCount++;
+    const div = document.createElement("div");
+    div.className = "item-row";
+    div.dataset.idx = idx;
+    div.innerHTML = `
+      <div class="grid cols-3">
+        <div>
+          <label>Componente</label>
+          <select class="sel-componente">
+            <option value="">Escolha ou crie um componente</option>
+            <option value="${NOVO_COMPONENTE}">+ Novo componente</option>
+            ${componentes.map((c) => `<option value="${c.id}">${c.codigo} — ${c.descricao}</option>`).join("")}
+          </select>
+          <div class="novo-componente grid cols-3" style="display:none; margin-top: 8px">
+            <input class="novo-codigo" placeholder="Código">
+            <input class="novo-descricao" placeholder="Descrição">
+            <input class="novo-umc" placeholder="UMC" value="PC">
+          </div>
+        </div>
+        <div>
+          <label>Peças por UMC</label>
+          <input type="number" min="0" step="any" class="input-pcs" placeholder="ex: 6" required>
+        </div>
+        <div style="display:flex; align-items:flex-end">
+          <button type="button" class="ghost btn-remover">Remover</button>
+        </div>
+      </div>
+    `;
+    div.querySelector(".sel-componente").addEventListener("change", (e) => {
+      div.querySelector(".novo-componente").style.display =
+        e.target.value === NOVO_COMPONENTE ? "grid" : "none";
+    });
+    div.querySelector(".btn-remover").addEventListener("click", () => {
+      if (document.querySelectorAll("#itens .item-row").length > 1) div.remove();
+    });
+    document.getElementById("itens").appendChild(div);
+  }
+
+  function coletarItens() {
+    const linhas = document.querySelectorAll("#itens .item-row");
+    return Array.from(linhas).map((linha) => {
+      const componenteId = linha.querySelector(".sel-componente").value;
+      const pcsPorUmc = Number(linha.querySelector(".input-pcs").value);
+      if (componenteId === NOVO_COMPONENTE) {
+        return {
+          componenteCodigo: linha.querySelector(".novo-codigo").value,
+          componenteDescricao: linha.querySelector(".novo-descricao").value,
+          componenteUmc: linha.querySelector(".novo-umc").value,
+          pcsPorUmc,
+        };
+      }
+      return { componenteId: Number(componenteId), pcsPorUmc };
+    });
+  }
+
+  async function init() {
+    componentes = await api("/api/materiais?tipo=componente");
+    novaLinha();
+    document.getElementById("btn-add-item").addEventListener("click", novaLinha);
+
+    document.getElementById("form-referencia").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const erroEl = document.getElementById("erro");
+      const btn = document.getElementById("btn-salvar");
+      erroEl.style.display = "none";
+      btn.disabled = true;
+      btn.textContent = "Salvando...";
+      try {
+        const payload = {
+          codigo: document.getElementById("codigo").value,
+          descricao: document.getElementById("descricao").value,
+          umc: document.getElementById("umc").value,
+          itens: coletarItens(),
+        };
+        const data = await api("/api/referencias", {
+          method: "POST",
+          body: JSON.stringify(payload),
+        });
+        window.location.href = `/boms.html?materialId=${data.materialId}`;
+      } catch (err) {
+        erroEl.textContent = err.message;
+        erroEl.style.display = "block";
+        btn.disabled = false;
+        btn.textContent = "Salvar referência e lista técnica";
+      }
+    });
+  }
+
+  init();
+</script>
+</body>
+</html>

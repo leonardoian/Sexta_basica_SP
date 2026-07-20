@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Programa de produção — Planej. Compras</title>
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<header class="topbar" id="topbar"></header>
+<main>
+  <div class="card">
+    <h2>Programa de produção</h2>
+    <div class="grid cols-2">
+      <div>
+        <label>Programa existente</label>
+        <select id="sel-programa">
+          <option value="">Escolha um programa</option>
+        </select>
+      </div>
+      <form id="form-novo-programa">
+        <label>Novo programa</label>
+        <div class="row">
+          <input id="input-nome-programa" placeholder="ex: Programa Julho/2026" style="flex:1">
+          <button type="submit">Criar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div class="card" id="card-itens" style="display:none">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 16px">
+      <h2 style="margin:0">Itens do programa</h2>
+      <a id="link-resultado" href="#"><button type="button" class="secondary">Ver resultado</button></a>
+    </div>
+
+    <form id="form-item" class="row" style="margin-bottom: 16px">
+      <div style="flex: 1; min-width: 220px">
+        <label>Referência (acabado)</label>
+        <select id="sel-material" required></select>
+      </div>
+      <div style="width: 160px">
+        <label>Qtd. a produzir</label>
+        <input type="number" id="input-qtd" min="0" step="any" required>
+      </div>
+      <button type="submit">Adicionar</button>
+    </form>
+
+    <p class="erro" id="erro" style="display:none"></p>
+
+    <table>
+      <thead>
+        <tr><th>Referência</th><th>Descrição</th><th>Qtd. a produzir</th><th></th></tr>
+      </thead>
+      <tbody id="tbody"></tbody>
+    </table>
+    <p class="muted" id="vazio" style="display:none">Nenhum item no programa ainda.</p>
+  </div>
+</main>
+<script src="/app.js"></script>
+<script>
+  let programaId = null;
+
+  async function carregarProgramas() {
+    const programas = await api("/api/programas");
+    const sel = document.getElementById("sel-programa");
+    sel.innerHTML =
+      `<option value="">Escolha um programa</option>` +
+      programas.map((p) => `<option value="${p.id}">${p.nome} (${p.status})</option>`).join("");
+  }
+
+  async function carregarAcabados() {
+    const acabados = await api("/api/materiais?tipo=acabado");
+    document.getElementById("sel-material").innerHTML = acabados
+      .map((a) => `<option value="${a.id}">${a.codigo} — ${a.descricao}</option>`)
+      .join("");
+  }
+
+  async function carregarItens(id) {
+    document.getElementById("card-itens").style.display = id ? "block" : "none";
+    if (!id) return;
+    document.getElementById("link-resultado").href = `/resultado.html?programaId=${id}`;
+    const itens = await api(`/api/programa-itens?programaId=${id}`);
+    document.getElementById("tbody").innerHTML = itens
+      .map(
+        (it) => `
+        <tr>
+          <td>${it.material_codigo}</td>
+          <td>${it.material_descricao}</td>
+          <td>${it.qtd_produzir}</td>
+          <td><button class="ghost" onclick="removerItem(${it.id})">Remover</button></td>
+        </tr>`
+      )
+      .join("");
+    document.getElementById("vazio").style.display = itens.length ? "none" : "block";
+  }
+
+  async function removerItem(itemId) {
+    await api("/api/programa-itens", { method: "DELETE", body: JSON.stringify({ itemId }) });
+    await carregarItens(programaId);
+  }
+
+  document.getElementById("sel-programa").addEventListener("change", (e) => {
+    programaId = e.target.value;
+    carregarItens(programaId);
+  });
+
+  document.getElementById("form-novo-programa").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const nome = document.getElementById("input-nome-programa").value;
+    if (!nome) return;
+    const novo = await api("/api/programas", { method: "POST", body: JSON.stringify({ nome }) });
+    document.getElementById("input-nome-programa").value = "";
+    await carregarProgramas();
+    document.getElementById("sel-programa").value = novo.id;
+    programaId = novo.id;
+    await carregarItens(programaId);
+  });
+
+  document.getElementById("form-item").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const erroEl = document.getElementById("erro");
+    erroEl.style.display = "none";
+    try {
+      await api("/api/programa-itens", {
+        method: "POST",
+        body: JSON.stringify({
+          programaId,
+          materialId: Number(document.getElementById("sel-material").value),
+          qtdProduzir: Number(document.getElementById("input-qtd").value),
+        }),
+      });
+      document.getElementById("input-qtd").value = "";
+      await carregarItens(programaId);
+    } catch (err) {
+      erroEl.textContent = err.message;
+      erroEl.style.display = "block";
+    }
+  });
+
+  carregarProgramas();
+  carregarAcabados();
+</script>
+</body>
+</html>

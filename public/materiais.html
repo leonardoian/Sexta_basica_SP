@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Materiais — Planej. Compras</title>
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<header class="topbar" id="topbar"></header>
+<main>
+  <div class="card">
+    <h2>Novo material</h2>
+    <form id="form-material" class="grid cols-2">
+      <div>
+        <label for="codigo">Código</label>
+        <input id="codigo" placeholder="ex: 9057" required>
+      </div>
+      <div>
+        <label for="descricao">Descrição</label>
+        <input id="descricao" required>
+      </div>
+      <div>
+        <label for="umc">UMC</label>
+        <input id="umc" value="PC" placeholder="PC, CX, KG...">
+      </div>
+      <div>
+        <label for="tipo">Tipo</label>
+        <select id="tipo">
+          <option value="componente">Componente</option>
+          <option value="acabado">Acabado</option>
+        </select>
+      </div>
+      <div style="grid-column: 1 / -1">
+        <p class="erro" id="erro" style="display:none"></p>
+        <button type="submit" id="btn-salvar">Adicionar</button>
+      </div>
+    </form>
+  </div>
+
+  <div class="card">
+    <h2>Materiais cadastrados</h2>
+    <table>
+      <thead>
+        <tr><th>Código</th><th>Descrição</th><th>UMC</th><th>Tipo</th><th></th></tr>
+      </thead>
+      <tbody id="tbody"></tbody>
+    </table>
+    <p class="muted" id="vazio" style="display:none">Nenhum material cadastrado.</p>
+  </div>
+</main>
+<script src="/app.js"></script>
+<script>
+  async function carregar() {
+    const materiais = await api("/api/materiais");
+    const tbody = document.getElementById("tbody");
+    tbody.innerHTML = materiais
+      .map(
+        (m) => `
+        <tr>
+          <td>${m.codigo}</td>
+          <td>${m.descricao}</td>
+          <td>${m.umc}</td>
+          <td>${m.tipo}</td>
+          <td><button class="ghost" onclick="excluir(${m.id})">Excluir</button></td>
+        </tr>`
+      )
+      .join("");
+    document.getElementById("vazio").style.display = materiais.length ? "none" : "block";
+  }
+
+  async function excluir(id) {
+    if (!confirm("Excluir este material?")) return;
+    await api("/api/materiais", { method: "DELETE", body: JSON.stringify({ id }) });
+    carregar();
+  }
+
+  document.getElementById("form-material").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const erroEl = document.getElementById("erro");
+    const btn = document.getElementById("btn-salvar");
+    erroEl.style.display = "none";
+    btn.disabled = true;
+    try {
+      await api("/api/materiais", {
+        method: "POST",
+        body: JSON.stringify({
+          codigo: document.getElementById("codigo").value,
+          descricao: document.getElementById("descricao").value,
+          umc: document.getElementById("umc").value,
+          tipo: document.getElementById("tipo").value,
+        }),
+      });
+      document.getElementById("form-material").reset();
+      document.getElementById("umc").value = "PC";
+      await carregar();
+    } catch (err) {
+      erroEl.textContent = err.message;
+      erroEl.style.display = "block";
+    } finally {
+      btn.disabled = false;
+    }
+  });
+
+  carregar();
+</script>
+</body>
+</html>
