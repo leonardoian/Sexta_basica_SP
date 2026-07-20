@@ -3,6 +3,11 @@ import { Card, CardHeader, CardTitle, CardDescription } from "@/components/ui/ca
 
 const SECTIONS = [
   {
+    href: "/referencias/nova",
+    title: "Nova referência",
+    description: "Cadastrar acabado e a lista técnica completa de uma vez",
+  },
+  {
     href: "/materiais",
     title: "Materiais",
     description: "Cadastro de materiais acabados e componentes",
@@ -10,7 +15,7 @@ const SECTIONS = [
   {
     href: "/boms",
     title: "BOMs",
-    description: "Montar lista técnica: componentes e peças por UMC",
+    description: "Consultar/editar a lista técnica de uma referência já cadastrada",
   },
   {
     href: "/estoque",

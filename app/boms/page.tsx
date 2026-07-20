@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -31,10 +32,11 @@ interface BomItemView {
   pcs_por_umc: string;
 }
 
-export default function BomsPage() {
+function BomsContent() {
+  const searchParams = useSearchParams();
   const [acabados, setAcabados] = useState<Material[]>([]);
   const [componentes, setComponentes] = useState<Material[]>([]);
-  const [materialId, setMaterialId] = useState<string>("");
+  const [materialId, setMaterialId] = useState<string>(searchParams.get("materialId") ?? "");
   const [bomId, setBomId] = useState<number | null>(null);
   const [itens, setItens] = useState<BomItemView[]>([]);
   const [loadingBom, setLoadingBom] = useState(false);
@@ -53,6 +55,10 @@ export default function BomsPage() {
     fetch("/api/materiais?tipo=componente")
       .then((r) => r.json())
       .then(setComponentes);
+    if (materialId) {
+      carregarBom(materialId);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   async function carregarBom(idMaterial: string) {
@@ -273,5 +279,13 @@ export default function BomsPage() {
         </Card>
       )}
     </div>
+  );
+}
+
+export default function BomsPage() {
+  return (
+    <Suspense fallback={<p className="text-sm text-muted-foreground">Carregando...</p>}>
+      <BomsContent />
+    </Suspense>
   );
 }

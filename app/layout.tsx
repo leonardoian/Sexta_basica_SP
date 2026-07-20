@@ -7,6 +7,7 @@ export const metadata: Metadata = {
 };
 
 const NAV_ITEMS = [
+  { href: "/referencias/nova", label: "Nova referência" },
   { href: "/materiais", label: "Materiais" },
   { href: "/boms", label: "BOMs" },
   { href: "/estoque", label: "Estoque" },
