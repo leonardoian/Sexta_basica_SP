@@ -18,10 +18,37 @@ export default async function handler(req, res) {
 
   if (req.method === "GET") {
     const { tipo } = req.query;
+    // pecas_por_caixa: heurística — pega o item da BOM cujo componente parece
+    // ser a caixa (código/descrição com "CX" ou "CAIXA"). Só faz sentido pra
+    // acabados; vem null pra componentes (não têm BOM).
     try {
       const rows = tipo
-        ? await sql`SELECT * FROM materiais WHERE tipo = ${tipo} ORDER BY codigo`
-        : await sql`SELECT * FROM materiais ORDER BY codigo`;
+        ? await sql`
+            SELECT m.*, (
+              SELECT bi.pcs_por_umc
+              FROM bom_itens bi
+              JOIN boms b ON b.id = bi.bom_id
+              JOIN materiais c ON c.id = bi.componente_id
+              WHERE b.material_id = m.id
+                AND (c.codigo ILIKE '%CX%' OR c.codigo ILIKE '%CAIXA%' OR c.descricao ILIKE '%CAIXA%')
+              ORDER BY bi.id
+              LIMIT 1
+            ) AS pecas_por_caixa
+            FROM materiais m WHERE m.tipo = ${tipo} ORDER BY m.codigo
+          `
+        : await sql`
+            SELECT m.*, (
+              SELECT bi.pcs_por_umc
+              FROM bom_itens bi
+              JOIN boms b ON b.id = bi.bom_id
+              JOIN materiais c ON c.id = bi.componente_id
+              WHERE b.material_id = m.id
+                AND (c.codigo ILIKE '%CX%' OR c.codigo ILIKE '%CAIXA%' OR c.descricao ILIKE '%CAIXA%')
+              ORDER BY bi.id
+              LIMIT 1
+            ) AS pecas_por_caixa
+            FROM materiais m ORDER BY m.codigo
+          `;
       return res.status(200).json(rows);
     } catch (e) {
       return res.status(500).json({ error: e.message });

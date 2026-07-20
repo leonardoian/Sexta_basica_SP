@@ -54,7 +54,7 @@
     <div class="tab-pane active" id="pane-acabados">
       <table>
         <thead>
-          <tr><th>Código</th><th>Descrição</th><th>UMC</th><th></th></tr>
+          <tr><th>Código</th><th>Descrição</th><th>UMC</th><th>Peças/caixa</th><th></th></tr>
         </thead>
         <tbody id="tbody-acabados"></tbody>
       </table>
@@ -141,6 +141,20 @@
       </tr>`;
   }
 
+  function linhaAcabado(m) {
+    return `
+      <tr>
+        <td>${m.codigo}</td>
+        <td>${m.descricao}</td>
+        <td>${m.umc}</td>
+        <td>${m.pecas_por_caixa != null ? formatNum(m.pecas_por_caixa) : "<span class='muted'>—</span>"}</td>
+        <td>
+          <button class="secondary" onclick="abrirEditor(${m.id})">Editar</button>
+          <button class="ghost" onclick="excluir(${m.id})">Excluir</button>
+        </td>
+      </tr>`;
+  }
+
   async function carregar() {
     const materiais = await api("/api/materiais");
     materiaisPorId = new Map(materiais.map((m) => [Number(m.id), m]));
@@ -149,7 +163,7 @@
     componentesDisponiveis = componentes;
 
     document.getElementById("count-acabados").textContent = acabados.length ? `(${acabados.length})` : "";
-    document.getElementById("tbody-acabados").innerHTML = acabados.map(linhaMaterial).join("");
+    document.getElementById("tbody-acabados").innerHTML = acabados.map(linhaAcabado).join("");
     document.getElementById("vazio-acabados").style.display = acabados.length ? "none" : "block";
 
     document.getElementById("count-componentes").textContent = componentes.length ? `(${componentes.length})` : "";
