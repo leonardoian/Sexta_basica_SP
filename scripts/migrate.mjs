@@ -22,11 +22,18 @@ if (!existsSync(schemaPath)) {
 const sql = neon(process.env.DATABASE_URL);
 const schema = readFileSync(schemaPath, "utf8");
 
-// Divide em statements por ";" no fim de linha, ignorando comentários "--".
-const statements = schema
-  .split(/;\s*(?:\r?\n|$)/)
+// Remove linhas de comentário ("--") antes de dividir em statements por ";",
+// senão um statement que começa com comentário (ex: cabeçalho de seção) é
+// descartado inteiro junto com o CREATE TABLE que vem logo depois.
+const semComentarios = schema
+  .split(/\r?\n/)
+  .filter((linha) => !linha.trim().startsWith("--"))
+  .join("\n");
+
+const statements = semComentarios
+  .split(";")
   .map((s) => s.trim())
-  .filter((s) => s.length > 0 && !s.startsWith("--"));
+  .filter((s) => s.length > 0);
 
 console.log(`Aplicando ${statements.length} statement(s) de db/schema.sql em ${new URL(process.env.DATABASE_URL).host}...`);
 
