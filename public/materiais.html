@@ -46,36 +46,53 @@
   </div>
 
   <div class="card">
-    <h2>Materiais cadastrados</h2>
+    <h2>Acabados <span class="muted" id="count-acabados"></span></h2>
     <table>
       <thead>
-        <tr><th>Código</th><th>Descrição</th><th>UMC</th><th>Tipo</th><th></th></tr>
+        <tr><th>Código</th><th>Descrição</th><th>UMC</th><th></th></tr>
       </thead>
-      <tbody id="tbody"></tbody>
+      <tbody id="tbody-acabados"></tbody>
     </table>
-    <p class="muted" id="vazio" style="display:none">Nenhum material cadastrado.</p>
+    <p class="muted" id="vazio-acabados" style="display:none">Nenhum acabado cadastrado.</p>
+  </div>
+
+  <div class="card">
+    <h2>Componentes <span class="muted" id="count-componentes"></span></h2>
+    <table>
+      <thead>
+        <tr><th>Código</th><th>Descrição</th><th>UMC</th><th></th></tr>
+      </thead>
+      <tbody id="tbody-componentes"></tbody>
+    </table>
+    <p class="muted" id="vazio-componentes" style="display:none">Nenhum componente cadastrado.</p>
   </div>
     </div>
   </div>
 </div>
 <script src="/app.js"></script>
 <script>
+  function linhaMaterial(m) {
+    return `
+      <tr>
+        <td>${m.codigo}</td>
+        <td>${m.descricao}</td>
+        <td>${m.umc}</td>
+        <td><button class="ghost" onclick="excluir(${m.id})">Excluir</button></td>
+      </tr>`;
+  }
+
   async function carregar() {
     const materiais = await api("/api/materiais");
-    const tbody = document.getElementById("tbody");
-    tbody.innerHTML = materiais
-      .map(
-        (m) => `
-        <tr>
-          <td>${m.codigo}</td>
-          <td>${m.descricao}</td>
-          <td>${m.umc}</td>
-          <td>${m.tipo}</td>
-          <td><button class="ghost" onclick="excluir(${m.id})">Excluir</button></td>
-        </tr>`
-      )
-      .join("");
-    document.getElementById("vazio").style.display = materiais.length ? "none" : "block";
+    const acabados = materiais.filter((m) => m.tipo === "acabado");
+    const componentes = materiais.filter((m) => m.tipo === "componente");
+
+    document.getElementById("count-acabados").textContent = acabados.length ? `(${acabados.length})` : "";
+    document.getElementById("tbody-acabados").innerHTML = acabados.map(linhaMaterial).join("");
+    document.getElementById("vazio-acabados").style.display = acabados.length ? "none" : "block";
+
+    document.getElementById("count-componentes").textContent = componentes.length ? `(${componentes.length})` : "";
+    document.getElementById("tbody-componentes").innerHTML = componentes.map(linhaMaterial).join("");
+    document.getElementById("vazio-componentes").style.display = componentes.length ? "none" : "block";
   }
 
   async function excluir(id) {
