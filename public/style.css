@@ -315,6 +315,39 @@ tr.ok td.valor-comprar {
 
 .item-row:last-child { border-bottom: none; padding-bottom: 0; margin-bottom: 0; }
 
+/* ---------- tabs ---------- */
+.tabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.tab-btn {
+  flex: 1;
+  padding: 10px 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  cursor: pointer;
+  text-align: center;
+  font-size: 13px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--muted);
+}
+
+.tab-btn:hover { border-color: var(--muted); color: var(--text); }
+
+.tab-btn.active {
+  border-color: var(--accent);
+  background: rgba(232, 52, 63, 0.08);
+  color: var(--accent);
+}
+
+.tab-pane { display: none; }
+.tab-pane.active { display: block; }
+
 /* ---------- home cards ---------- */
 .sections {
   display: grid;

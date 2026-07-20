@@ -46,25 +46,30 @@
   </div>
 
   <div class="card">
-    <h2>Acabados <span class="muted" id="count-acabados"></span></h2>
-    <table>
-      <thead>
-        <tr><th>Código</th><th>Descrição</th><th>UMC</th><th></th></tr>
-      </thead>
-      <tbody id="tbody-acabados"></tbody>
-    </table>
-    <p class="muted" id="vazio-acabados" style="display:none">Nenhum acabado cadastrado.</p>
-  </div>
+    <div class="tabs">
+      <button type="button" class="tab-btn active" data-pane="acabados">Acabados <span id="count-acabados"></span></button>
+      <button type="button" class="tab-btn" data-pane="componentes">Componentes <span id="count-componentes"></span></button>
+    </div>
 
-  <div class="card">
-    <h2>Componentes <span class="muted" id="count-componentes"></span></h2>
-    <table>
-      <thead>
-        <tr><th>Código</th><th>Descrição</th><th>UMC</th><th></th></tr>
-      </thead>
-      <tbody id="tbody-componentes"></tbody>
-    </table>
-    <p class="muted" id="vazio-componentes" style="display:none">Nenhum componente cadastrado.</p>
+    <div class="tab-pane active" id="pane-acabados">
+      <table>
+        <thead>
+          <tr><th>Código</th><th>Descrição</th><th>UMC</th><th></th></tr>
+        </thead>
+        <tbody id="tbody-acabados"></tbody>
+      </table>
+      <p class="muted" id="vazio-acabados" style="display:none">Nenhum acabado cadastrado.</p>
+    </div>
+
+    <div class="tab-pane" id="pane-componentes">
+      <table>
+        <thead>
+          <tr><th>Código</th><th>Descrição</th><th>UMC</th><th></th></tr>
+        </thead>
+        <tbody id="tbody-componentes"></tbody>
+      </table>
+      <p class="muted" id="vazio-componentes" style="display:none">Nenhum componente cadastrado.</p>
+    </div>
   </div>
     </div>
   </div>
@@ -94,6 +99,15 @@
     document.getElementById("tbody-componentes").innerHTML = componentes.map(linhaMaterial).join("");
     document.getElementById("vazio-componentes").style.display = componentes.length ? "none" : "block";
   }
+
+  document.querySelectorAll(".tab-btn").forEach((btn) =>
+    btn.addEventListener("click", () => {
+      document.querySelectorAll(".tab-btn").forEach((b) => b.classList.remove("active"));
+      document.querySelectorAll(".tab-pane").forEach((p) => p.classList.remove("active"));
+      btn.classList.add("active");
+      document.getElementById("pane-" + btn.dataset.pane).classList.add("active");
+    })
+  );
 
   async function excluir(id) {
     if (!confirm("Excluir este material?")) return;
