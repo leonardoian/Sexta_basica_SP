@@ -6,7 +6,7 @@ const NAV_ITEMS = [
   { href: "/estoque.html", label: "Estoque" },
   { href: "/programas.html", label: "Programa" },
   { href: "/resultado.html", label: "Resultado" },
-  { href: "/importar.html", label: "Importar Programa", newTab: true },
+  { href: "/importar.html", label: "Importar Programa" },
 ];
 
 function renderShell() {

@@ -6,6 +6,7 @@
 <title>Estoque — Planej. Compras</title>
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;900&family=Barlow:wght@300;400;500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/style.css">
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 </head>
 <body>
 <div class="app">
@@ -19,12 +20,13 @@
   <div class="card">
     <h2>Estoque atual</h2>
 
-    <div class="row" style="margin-bottom: 16px">
+    <div class="row" style="justify-content: space-between; margin-bottom: 16px">
       <div>
         <label>Importar planilha</label>
         <input type="file" id="input-importar" accept=".xlsx,.xls,.csv">
+        <span class="muted" id="msg-importar"></span>
       </div>
-      <span class="muted" id="msg-importar"></span>
+      <button type="button" class="secondary" id="btn-modelo">⬇ Baixar modelo de planilha</button>
     </div>
 
     <table>
@@ -40,6 +42,17 @@
 </div>
 <script src="/app.js"></script>
 <script>
+  document.getElementById("btn-modelo").addEventListener("click", () => {
+    const ws = XLSX.utils.aoa_to_sheet([
+      ["MATERIAL", "DESCRICAO", "ESTOQUE"],
+      ["9057", "RODO ALUM 70CM BOR SIMPLES S/CABO 1X6", 30],
+      ["3001610", "PERFIL BORRACHA RODO ALUM 70CM (14308)", 120],
+    ]);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Estoque");
+    XLSX.writeFile(wb, "modelo-estoque-planej-compras.xlsx");
+  });
+
   async function carregar() {
     const linhas = await api("/api/estoque");
     document.getElementById("tbody").innerHTML = linhas
