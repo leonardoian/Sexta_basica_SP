@@ -127,9 +127,9 @@
             <td>${l.componente_codigo}</td>
             <td>${l.componente_descricao}</td>
             <td>${l.umc}</td>
-            <td>${l.necessidade_total}</td>
-            <td>${l.estoque_atual}</td>
-            <td class="valor-comprar">${l.a_comprar}</td>
+            <td>${formatNum(l.necessidade_total)}</td>
+            <td>${formatNum(l.estoque_atual)}</td>
+            <td class="valor-comprar">${formatNum(l.a_comprar)}</td>
           </tr>`;
       })
       .join("");

@@ -96,7 +96,7 @@
         <tr>
           <td>${it.material_codigo}</td>
           <td>${it.material_descricao}</td>
-          <td>${it.qtd_produzir}</td>
+          <td>${formatNum(it.qtd_produzir)}</td>
           <td><button class="ghost" onclick="removerItem(${it.id})">Remover</button></td>
         </tr>`
       )

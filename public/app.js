@@ -46,6 +46,13 @@ function renderShell() {
   }
 }
 
+// Postgres devolve colunas NUMERIC como string com casas fixas (ex: "12.0000").
+// Isso converte pra número e formata sem zeros à direita (ex: "12").
+function formatNum(v) {
+  const n = Number(v);
+  return Number.isFinite(n) ? n.toString() : v;
+}
+
 async function api(path, opts = {}) {
   const res = await fetch(path, {
     ...opts,

@@ -215,7 +215,7 @@
           <td>${it.componente_codigo}</td>
           <td>${it.componente_descricao}</td>
           <td>${it.componente_umc}</td>
-          <td>${it.pcs_por_umc}</td>
+          <td>${formatNum(it.pcs_por_umc)}</td>
           <td><button class="ghost" onclick="removerItemBom(${it.id})">Remover</button></td>
         </tr>`
       )
