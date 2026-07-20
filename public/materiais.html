@@ -143,7 +143,7 @@
 
   async function carregar() {
     const materiais = await api("/api/materiais");
-    materiaisPorId = new Map(materiais.map((m) => [m.id, m]));
+    materiaisPorId = new Map(materiais.map((m) => [Number(m.id), m]));
     const acabados = materiais.filter((m) => m.tipo === "acabado");
     const componentes = materiais.filter((m) => m.tipo === "componente");
     componentesDisponiveis = componentes;
@@ -169,7 +169,7 @@
   async function excluir(id) {
     if (!confirm("Excluir este material?")) return;
     await api("/api/materiais", { method: "DELETE", body: JSON.stringify({ id }) });
-    if (editando && editando.id === id) fecharEditor();
+    if (editando && editando.id === Number(id)) fecharEditor();
     carregar();
   }
 
@@ -179,9 +179,9 @@
   }
 
   async function abrirEditor(id) {
-    const m = materiaisPorId.get(id);
+    const m = materiaisPorId.get(Number(id));
     if (!m) return;
-    editando = { id: m.id, tipo: m.tipo, bomId: null };
+    editando = { id: Number(m.id), tipo: m.tipo, bomId: null };
 
     document.getElementById("editor").style.display = "block";
     document.getElementById("edit-tipo-label").textContent = `(${m.tipo})`;
