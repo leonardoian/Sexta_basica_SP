@@ -71,25 +71,82 @@
       <p class="muted" id="vazio-componentes" style="display:none">Nenhum componente cadastrado.</p>
     </div>
   </div>
+
+  <div class="card" id="editor" style="display:none">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 16px">
+      <h2 style="margin:0">Editar material <span class="muted" id="edit-tipo-label"></span></h2>
+      <button type="button" class="secondary" id="btn-cancelar-edicao">Fechar</button>
+    </div>
+    <form id="form-editar" class="grid cols-3">
+      <div>
+        <label for="edit-codigo">Código</label>
+        <input id="edit-codigo" required>
+      </div>
+      <div>
+        <label for="edit-descricao">Descrição</label>
+        <input id="edit-descricao" required>
+      </div>
+      <div>
+        <label for="edit-umc">UMC</label>
+        <input id="edit-umc">
+      </div>
+      <div style="grid-column: 1 / -1">
+        <p class="erro" id="edit-erro" style="display:none"></p>
+        <button type="submit">Salvar alterações</button>
+      </div>
+    </form>
+
+    <div id="editor-bom" style="display:none; margin-top: 20px; border-top: 1px solid var(--border); padding-top: 20px">
+      <h2>Lista técnica</h2>
+      <form id="form-bom-item" class="row" style="margin-bottom: 16px">
+        <div style="flex: 1; min-width: 220px">
+          <label>Componente</label>
+          <select id="edit-componente" required></select>
+        </div>
+        <div style="width: 160px">
+          <label>Peças por UMC</label>
+          <input type="number" id="edit-pcs" min="0" step="any" placeholder="ex: 6" required>
+        </div>
+        <button type="submit">Salvar item</button>
+      </form>
+      <p class="erro" id="edit-bom-erro" style="display:none"></p>
+      <table>
+        <thead>
+          <tr><th>Componente</th><th>Descrição</th><th>UMC</th><th>Peças por UMC</th><th></th></tr>
+        </thead>
+        <tbody id="editor-bom-tbody"></tbody>
+      </table>
+      <p class="muted" id="editor-bom-vazio" style="display:none">Nenhum componente na lista técnica ainda.</p>
+    </div>
+  </div>
     </div>
   </div>
 </div>
 <script src="/app.js"></script>
 <script>
+  let materiaisPorId = new Map();
+  let componentesDisponiveis = [];
+  let editando = null; // { id, tipo, bomId }
+
   function linhaMaterial(m) {
     return `
       <tr>
         <td>${m.codigo}</td>
         <td>${m.descricao}</td>
         <td>${m.umc}</td>
-        <td><button class="ghost" onclick="excluir(${m.id})">Excluir</button></td>
+        <td>
+          <button class="secondary" onclick="abrirEditor(${m.id})">Editar</button>
+          <button class="ghost" onclick="excluir(${m.id})">Excluir</button>
+        </td>
       </tr>`;
   }
 
   async function carregar() {
     const materiais = await api("/api/materiais");
+    materiaisPorId = new Map(materiais.map((m) => [m.id, m]));
     const acabados = materiais.filter((m) => m.tipo === "acabado");
     const componentes = materiais.filter((m) => m.tipo === "componente");
+    componentesDisponiveis = componentes;
 
     document.getElementById("count-acabados").textContent = acabados.length ? `(${acabados.length})` : "";
     document.getElementById("tbody-acabados").innerHTML = acabados.map(linhaMaterial).join("");
@@ -112,8 +169,111 @@
   async function excluir(id) {
     if (!confirm("Excluir este material?")) return;
     await api("/api/materiais", { method: "DELETE", body: JSON.stringify({ id }) });
+    if (editando && editando.id === id) fecharEditor();
     carregar();
   }
+
+  function fecharEditor() {
+    editando = null;
+    document.getElementById("editor").style.display = "none";
+  }
+
+  async function abrirEditor(id) {
+    const m = materiaisPorId.get(id);
+    if (!m) return;
+    editando = { id: m.id, tipo: m.tipo, bomId: null };
+
+    document.getElementById("editor").style.display = "block";
+    document.getElementById("edit-tipo-label").textContent = `(${m.tipo})`;
+    document.getElementById("edit-codigo").value = m.codigo;
+    document.getElementById("edit-descricao").value = m.descricao;
+    document.getElementById("edit-umc").value = m.umc;
+    document.getElementById("edit-erro").style.display = "none";
+    document.getElementById("editor").scrollIntoView({ behavior: "smooth", block: "start" });
+
+    const editorBom = document.getElementById("editor-bom");
+    if (m.tipo === "acabado") {
+      editorBom.style.display = "block";
+      document.getElementById("edit-componente").innerHTML = componentesDisponiveis
+        .map((c) => `<option value="${c.id}">${c.codigo} — ${c.descricao}</option>`)
+        .join("");
+      const bom = await api("/api/boms", { method: "POST", body: JSON.stringify({ materialId: id }) });
+      editando.bomId = bom.id;
+      await carregarItensBom();
+    } else {
+      editorBom.style.display = "none";
+    }
+  }
+
+  async function carregarItensBom() {
+    if (!editando || !editando.bomId) return;
+    const itens = await api(`/api/bom-itens?bomId=${editando.bomId}`);
+    document.getElementById("editor-bom-tbody").innerHTML = itens
+      .map(
+        (it) => `
+        <tr>
+          <td>${it.componente_codigo}</td>
+          <td>${it.componente_descricao}</td>
+          <td>${it.componente_umc}</td>
+          <td>${it.pcs_por_umc}</td>
+          <td><button class="ghost" onclick="removerItemBom(${it.id})">Remover</button></td>
+        </tr>`
+      )
+      .join("");
+    document.getElementById("editor-bom-vazio").style.display = itens.length ? "none" : "block";
+  }
+
+  async function removerItemBom(itemId) {
+    await api("/api/bom-itens", { method: "DELETE", body: JSON.stringify({ itemId }) });
+    await carregarItensBom();
+  }
+
+  document.getElementById("btn-cancelar-edicao").addEventListener("click", fecharEditor);
+
+  document.getElementById("form-editar").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    if (!editando) return;
+    const erroEl = document.getElementById("edit-erro");
+    erroEl.style.display = "none";
+    try {
+      await api("/api/materiais", {
+        method: "PUT",
+        body: JSON.stringify({
+          id: editando.id,
+          codigo: document.getElementById("edit-codigo").value,
+          descricao: document.getElementById("edit-descricao").value,
+          umc: document.getElementById("edit-umc").value,
+          tipo: editando.tipo,
+        }),
+      });
+      await carregar();
+    } catch (err) {
+      erroEl.textContent = err.message;
+      erroEl.style.display = "block";
+    }
+  });
+
+  document.getElementById("form-bom-item").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    if (!editando || !editando.bomId) return;
+    const erroEl = document.getElementById("edit-bom-erro");
+    erroEl.style.display = "none";
+    try {
+      await api("/api/bom-itens", {
+        method: "POST",
+        body: JSON.stringify({
+          bomId: editando.bomId,
+          componenteId: Number(document.getElementById("edit-componente").value),
+          pcsPorUmc: Number(document.getElementById("edit-pcs").value),
+        }),
+      });
+      document.getElementById("edit-pcs").value = "";
+      await carregarItensBom();
+    } catch (err) {
+      erroEl.textContent = err.message;
+      erroEl.style.display = "block";
+    }
+  });
 
   document.getElementById("form-material").addEventListener("submit", async (e) => {
     e.preventDefault();
