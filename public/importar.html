@@ -75,9 +75,12 @@
 
   <div id="alert" class="alert"></div>
 
-  <div class="field">
-    <label for="nome-programa">Nome do programa (para os itens da aba PROGRAMA)</label>
-    <input id="nome-programa" placeholder="ex: Programa Julho/2026">
+  <div class="row" style="justify-content: space-between; align-items: flex-end; margin-bottom: 16px">
+    <div class="field" style="margin-bottom: 0">
+      <label for="nome-programa">Nome do programa (para os itens da aba PROGRAMA)</label>
+      <input id="nome-programa" placeholder="ex: Programa Julho/2026">
+    </div>
+    <button type="button" class="secondary" id="btn-modelo">⬇ Baixar modelo de planilha</button>
   </div>
 
   <label class="drop" id="drop">
@@ -132,6 +135,24 @@ function showAlert(type, msg) { const a = $("alert"); a.className = "alert show 
 function hideAlert() { $("alert").className = "alert"; }
 
 let DATA = { refs: [], prog: [] };
+
+// ---------- modelo de planilha ----------
+$("btn-modelo").addEventListener("click", () => {
+  const refsSheet = XLSX.utils.aoa_to_sheet([
+    ["CODIGO", "DESCRICAO", "UMC", "CAIXA", "PECAS POR CAIXA"],
+    ["9057", "RODO ALUM 70CM BOR SIMPLES S/CABO 1X6", "PC", "951", 6],
+    ["9068", "BALDE C/ESPREM. DIV.AGUAS20L SUPERPRO1X1", "PC", "", ""],
+  ]);
+  const progSheet = XLSX.utils.aoa_to_sheet([
+    ["REFERENCIA", "QTD A PRODUZIR"],
+    ["9057", 600],
+    ["9068", 300],
+  ]);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, refsSheet, "REFERENCIAS");
+  XLSX.utils.book_append_sheet(wb, progSheet, "PROGRAMA");
+  XLSX.writeFile(wb, "modelo-importacao-planej-compras.xlsx");
+});
 
 // ---------- drag & drop ----------
 const drop = $("drop"), fileInput = $("file");
