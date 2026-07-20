@@ -4,11 +4,18 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Materiais — Planej. Compras</title>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;900&family=Barlow:wght@300;400;500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/style.css">
 </head>
 <body>
-<header class="topbar" id="topbar"></header>
-<main>
+<div class="app">
+  <nav class="sidebar" id="sidebar"></nav>
+  <div class="main">
+    <div class="topbar">
+      <div class="topbar-title" id="topbar-title">Materiais</div>
+      <div class="topbar-date" id="topbar-date"></div>
+    </div>
+    <div class="content">
   <div class="card">
     <h2>Novo material</h2>
     <form id="form-material" class="grid cols-2">
@@ -48,7 +55,9 @@
     </table>
     <p class="muted" id="vazio" style="display:none">Nenhum material cadastrado.</p>
   </div>
-</main>
+    </div>
+  </div>
+</div>
 <script src="/app.js"></script>
 <script>
   async function carregar() {

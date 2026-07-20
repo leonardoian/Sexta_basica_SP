@@ -8,19 +8,41 @@ const NAV_ITEMS = [
   { href: "/resultado.html", label: "Resultado" },
 ];
 
-function renderNav() {
-  const el = document.getElementById("topbar");
-  if (!el) return;
-  const atual = window.location.pathname;
-  el.innerHTML = `
-    <div class="brand">Planej. Compras</div>
-    <nav>
-      ${NAV_ITEMS.map(
-        (item) =>
-          `<a href="${item.href}" class="${atual === item.href ? "active" : ""}">${item.label}</a>`
-      ).join("")}
-    </nav>
+function renderShell() {
+  const sidebar = document.getElementById("sidebar");
+  if (!sidebar) return;
+  const atual = window.location.pathname === "/" ? "/index.html" : window.location.pathname;
+
+  sidebar.innerHTML = `
+    <div class="slogo">
+      <div class="brand-mark">PLANEJ.</div>
+      <div class="brand-sub">COMPRAS</div>
+    </div>
+    <div class="snl">Navegação</div>
+    ${NAV_ITEMS.map(
+      (item) =>
+        `<a class="ni ${atual === item.href ? "active" : ""}" href="${item.href}">${item.label}</a>`
+    ).join("")}
+    <div class="sfoot">
+      <span class="muted">InBetta — PCP</span>
+    </div>
   `;
+
+  const titleEl = document.getElementById("topbar-title");
+  if (titleEl) {
+    const atual_item = NAV_ITEMS.find((i) => i.href === atual);
+    titleEl.textContent = atual_item ? atual_item.label : "Planej. Compras";
+  }
+
+  const dateEl = document.getElementById("topbar-date");
+  if (dateEl) {
+    dateEl.textContent = new Date().toLocaleDateString("pt-BR", {
+      weekday: "short",
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+    });
+  }
 }
 
 async function api(path, opts = {}) {
@@ -47,4 +69,4 @@ function fileParaBase64(file) {
   });
 }
 
-document.addEventListener("DOMContentLoaded", renderNav);
+document.addEventListener("DOMContentLoaded", renderShell);
