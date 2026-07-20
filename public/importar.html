@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Importar Planilha — Planej. Compras</title>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;900&family=Barlow:wght@300;400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/style.css">
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<style>
+  body { padding: 28px; }
+  .wrap { max-width: 1080px; margin: 0 auto; }
+  header.imp { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+  header.imp h1 { font-family: "Barlow Condensed", sans-serif; font-size: 30px; font-weight: 900; margin: 0; }
+  header.imp h1 span { color: var(--accent); }
+  .back { color: var(--muted); text-decoration: none; font-size: 12px; font-weight: 700; letter-spacing: 1px;
+    border: 1px solid var(--border); padding: 8px 16px; }
+  .back:hover { border-color: var(--accent); color: var(--accent); }
+  .sub { color: var(--muted); font-size: 13px; margin: 10px 0 24px; max-width: 700px; line-height: 1.6; }
+  .sub b { color: var(--text); }
+
+  .drop { display: block; border: 1.5px dashed var(--border); background: var(--surface);
+    padding: 42px 24px; text-align: center; cursor: pointer; margin-bottom: 20px; }
+  .drop:hover, .drop.over { border-color: var(--accent); background: var(--surface-2); }
+  .drop .ic { font-size: 32px; margin-bottom: 10px; color: var(--muted); }
+  .drop b { font-family: "Barlow Condensed", sans-serif; font-size: 15px; }
+  .drop span { display: block; color: var(--muted); font-size: 12px; margin-top: 6px; }
+  .drop input { display: none; }
+
+  .tabs { display: flex; gap: 8px; margin-bottom: 14px; }
+  .tab { flex: 1; padding: 13px; border: 1px solid var(--border); background: var(--surface); cursor: pointer; text-align: center; }
+  .tab.active { border-color: var(--accent); background: rgba(232,52,63,.08); }
+  .tab .n { font-size: 10px; letter-spacing: 2px; text-transform: uppercase; color: var(--muted); }
+  .tab.active .n { color: var(--accent); }
+  .tab .c { font-family: "Barlow Condensed", sans-serif; font-size: 24px; font-weight: 800; margin-top: 4px; }
+  .pane { display: none; }
+  .pane.active { display: block; }
+
+  .meta { display: flex; gap: 18px; flex-wrap: wrap; margin-bottom: 12px; font-size: 13px; color: var(--muted); }
+  .meta b { color: var(--text); }
+  .pill { display: inline-block; padding: 2px 8px; font-size: 10px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; }
+  .pill.ok { background: rgba(34,197,94,.12); color: var(--green); }
+  .pill.bad { background: rgba(232,52,63,.12); color: var(--accent); }
+
+  .tablewrap { border: 1px solid var(--border); overflow: auto; max-height: 380px; }
+  tbody tr.skip { opacity: .4; }
+  td.num { text-align: right; font-variant-numeric: tabular-nums; }
+  .cod { font-weight: 700; color: var(--accent); font-family: monospace; }
+
+  .bar { display: flex; align-items: center; justify-content: space-between; gap: 14px; margin-top: 18px; }
+  .status { font-size: 13px; color: var(--muted); }
+
+  .alert { padding: 12px 16px; margin-bottom: 16px; font-size: 13px; display: none; border-left: 3px solid; }
+  .alert.show { display: block; }
+  .alert.e { background: rgba(232,52,63,.08); color: #fca5a5; border-color: var(--accent); }
+  .alert.s { background: rgba(34,197,94,.08); color: #6ee7b7; border-color: var(--green); }
+
+  .prog { height: 4px; background: var(--border); overflow: hidden; margin-top: 14px; display: none; }
+  .prog.show { display: block; }
+  .prog i { display: block; height: 100%; width: 0; background: var(--accent); transition: width .2s; }
+  .hint { color: var(--muted); font-size: 12px; margin-top: 10px; line-height: 1.5; }
+
+  .field { margin-bottom: 16px; max-width: 320px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="imp">
+    <h1>Importar <span>Planilha</span></h1>
+    <a class="back" href="/programas.html">← Voltar ao sistema</a>
+  </header>
+  <p class="sub">Envie a planilha (.xlsx). O sistema lê as abas <b>REFERENCIAS</b> e <b>PROGRAMA</b>, mostra uma
+    prévia do que será gravado e envia para o banco. Na aba de referências, a coluna de <b>peças por caixa</b>
+    já cadastra a lista técnica (componente caixa) junto com a referência.</p>
+
+  <div id="alert" class="alert"></div>
+
+  <div class="field">
+    <label for="nome-programa">Nome do programa (para os itens da aba PROGRAMA)</label>
+    <input id="nome-programa" placeholder="ex: Programa Julho/2026">
+  </div>
+
+  <label class="drop" id="drop">
+    <div class="ic">⬆</div>
+    <b>Arraste o Excel aqui ou clique para escolher</b>
+    <span>Aceita .xlsx / .xls</span>
+    <input type="file" id="file" accept=".xlsx,.xls">
+  </label>
+
+  <div id="result" style="display:none">
+    <div class="tabs">
+      <div class="tab active" data-pane="refs">
+        <div class="n">Referências</div><div class="c" id="cnt-refs">0</div>
+      </div>
+      <div class="tab" data-pane="prog">
+        <div class="n">Programa</div><div class="c" id="cnt-prog">0</div>
+      </div>
+    </div>
+
+    <div class="pane active" id="pane-refs">
+      <div class="meta" id="meta-refs"></div>
+      <div class="tablewrap">
+        <table>
+          <thead><tr><th>Código</th><th>Descrição</th><th>UMC</th><th>Caixa</th><th>Peças/caixa</th><th>Status</th></tr></thead>
+          <tbody id="tb-refs"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="pane" id="pane-prog">
+      <div class="meta" id="meta-prog"></div>
+      <div class="tablewrap">
+        <table>
+          <thead><tr><th>Referência</th><th>Qtd. a produzir</th><th>Status</th></tr></thead>
+          <tbody id="tb-prog"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="bar">
+      <div class="status" id="status">Confira a prévia e envie.</div>
+      <button id="send">Enviar para o sistema</button>
+    </div>
+    <div class="prog" id="bar"><i id="barfill"></i></div>
+    <div class="hint">Referências são enviadas primeiro (o programa depende delas). Itens existentes são atualizados.</div>
+  </div>
+</div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+function showAlert(type, msg) { const a = $("alert"); a.className = "alert show " + type; a.textContent = msg; }
+function hideAlert() { $("alert").className = "alert"; }
+
+let DATA = { refs: [], prog: [] };
+
+// ---------- drag & drop ----------
+const drop = $("drop"), fileInput = $("file");
+["dragover", "dragenter"].forEach((ev) => drop.addEventListener(ev, (e) => { e.preventDefault(); drop.classList.add("over"); }));
+["dragleave", "drop"].forEach((ev) => drop.addEventListener(ev, (e) => { e.preventDefault(); drop.classList.remove("over"); }));
+drop.addEventListener("drop", (e) => { if (e.dataTransfer.files.length) handleFile(e.dataTransfer.files[0]); });
+fileInput.addEventListener("change", (e) => { if (e.target.files.length) handleFile(e.target.files[0]); });
+
+// ---------- helpers de leitura ----------
+const norm = (s) => String(s == null ? "" : s).trim();
+const up = (s) => norm(s).toUpperCase();
+const toNum = (v) => { const n = parseFloat(String(v).replace(",", ".").replace(/[^\d.-]/g, "")); return isNaN(n) ? 0 : n; };
+
+function findHeader(rows, keys) {
+  let best = -1, bestScore = 0;
+  for (let i = 0; i < Math.min(rows.length, 10); i++) {
+    const joined = rows[i].map(up).join("|");
+    const score = keys.reduce((s, k) => s + (joined.includes(k) ? 1 : 0), 0);
+    if (score > bestScore) { bestScore = score; best = i; }
+  }
+  return bestScore >= 1 ? best : -1;
+}
+
+function colMap(headerRow, defs) {
+  const H = headerRow.map(up);
+  const out = {};
+  for (const [key, words] of Object.entries(defs)) {
+    out[key] = H.findIndex((h) => words.some((w) => h.includes(w)));
+  }
+  return out;
+}
+
+function sheetRows(wb, name) {
+  const found = wb.SheetNames.find((n) => up(n).includes(name)) || wb.SheetNames[0];
+  return XLSX.utils.sheet_to_json(wb.Sheets[found], { header: 1, blankrows: false, defval: "" });
+}
+
+function handleFile(file) {
+  hideAlert();
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    try {
+      const wb = XLSX.read(new Uint8Array(e.target.result), { type: "array" });
+      parseRefs(wb);
+      parseProg(wb);
+      renderAll(file.name);
+    } catch (err) {
+      showAlert("e", "Não consegui ler o arquivo: " + err.message);
+    }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+// ---------- parsing ----------
+function parseRefs(wb) {
+  DATA.refs = [];
+  const rows = sheetRows(wb, "REFERENC");
+  if (!rows) return;
+  const hi = findHeader(rows, ["CODIGO", "CÓDIGO", "DESCRI", "CAIXA", "PECAS", "PEÇAS"]);
+  if (hi < 0) return;
+  const c = colMap(rows[hi], {
+    cod: ["CODIGO", "CÓDIGO", "COD REF", "REFERENCIA"],
+    desc: ["DESCRICAO", "DESCRIÇÃO", "DESC"],
+    umc: ["UMC"],
+    caixaCod: ["CAIXA", "COMPONENTE", "EMBALAGEM"],
+    caixaDesc: ["DESC CAIXA", "DESCRICAO CAIXA", "DESC EMBALAGEM"],
+    pcsCaixa: ["PECAS POR CAIXA", "PEÇAS POR CAIXA", "PCS CAIXA", "PCS/CAIXA", "PECAS CAIXA", "QTD CAIXA", "QTD UMC"],
+  });
+  for (let r = hi + 1; r < rows.length; r++) {
+    const cod = up(rows[r][c.cod]);
+    if (!cod) continue;
+    const desc = norm(rows[r][c.desc]) || cod;
+    const umc = norm(rows[r][c.umc]) || "PC";
+    const caixaCod = c.caixaCod >= 0 ? norm(rows[r][c.caixaCod]) : "";
+    const caixaDesc = c.caixaDesc >= 0 ? norm(rows[r][c.caixaDesc]) : "";
+    const pcsCaixa = c.pcsCaixa >= 0 ? toNum(rows[r][c.pcsCaixa]) : 0;
+    DATA.refs.push({ cod, desc, umc, caixaCod, caixaDesc, pcsCaixa });
+  }
+}
+
+function parseProg(wb) {
+  DATA.prog = [];
+  const rows = sheetRows(wb, "PROGRAMA");
+  if (!rows) return;
+  const hi = findHeader(rows, ["REFERENCIA", "CODIGO", "QUANTIDADE", "QTD"]);
+  if (hi < 0) return;
+  const c = colMap(rows[hi], {
+    cod: ["REFERENCIA", "CODIGO", "CÓDIGO", "COD REF"],
+    qtd: ["QTD A PRODUZIR", "QUANTIDADE", "QTD PRODUZIR", "QTD"],
+  });
+  for (let r = hi + 1; r < rows.length; r++) {
+    const cod = up(rows[r][c.cod]);
+    if (!cod) continue;
+    const qtd = toNum(rows[r][c.qtd]);
+    DATA.prog.push({ cod, qtd });
+  }
+}
+
+// ---------- render ----------
+function renderAll(fname) {
+  const okRefs = DATA.refs.length, okProg = DATA.prog.length;
+  if (!okRefs && !okProg) {
+    showAlert("e", "Não encontrei dados nas abas REFERENCIAS ou PROGRAMA. Confira os cabeçalhos (CODIGO, DESCRICAO, QTD...).");
+    return;
+  }
+  $("result").style.display = "block";
+  $("cnt-refs").textContent = okRefs;
+  $("cnt-prog").textContent = okProg;
+
+  $("meta-refs").innerHTML = `Arquivo: <b>${fname}</b> &nbsp;·&nbsp; Linhas: <b>${okRefs}</b>`;
+  $("tb-refs").innerHTML = DATA.refs.map((r) => {
+    const temCaixa = r.caixaCod && r.pcsCaixa > 0;
+    return `<tr>
+      <td class="cod">${r.cod}</td>
+      <td>${r.desc}</td>
+      <td>${r.umc}</td>
+      <td>${r.caixaCod || "<span style='color:var(--muted)'>—</span>"}</td>
+      <td class="num">${r.pcsCaixa || "—"}</td>
+      <td>${temCaixa ? '<span class="pill ok">com lista técnica</span>' : '<span class="pill bad">só material</span>'}</td>
+    </tr>`;
+  }).join("");
+
+  $("meta-prog").innerHTML = `Linhas: <b>${okProg}</b> &nbsp;·&nbsp; Programa: <b>${$("nome-programa").value || "(informe o nome acima)"}</b>`;
+  $("tb-prog").innerHTML = DATA.prog.map((p) => `
+    <tr class="${!p.qtd ? "skip" : ""}">
+      <td class="cod">${p.cod}</td>
+      <td class="num">${p.qtd.toLocaleString("pt-BR")}</td>
+      <td>${p.qtd ? '<span class="pill ok">ok</span>' : '<span class="pill bad">sem quantidade</span>'}</td>
+    </tr>`).join("");
+
+  $("status").textContent = `Pronto: ${okRefs} referência(s) e ${DATA.prog.filter((p) => p.qtd > 0).length} linha(s) de programa válidas.`;
+  $("send").disabled = okRefs + okProg === 0;
+}
+
+// ---------- tabs ----------
+document.querySelectorAll(".tab").forEach((t) => t.addEventListener("click", () => {
+  document.querySelectorAll(".tab").forEach((x) => x.classList.remove("active"));
+  document.querySelectorAll(".pane").forEach((x) => x.classList.remove("active"));
+  t.classList.add("active");
+  $("pane-" + t.dataset.pane).classList.add("active");
+}));
+
+// ---------- envio ----------
+async function post(path, body) {
+  const r = await fetch("/api/" + path, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  const d = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(d.error || "Erro " + r.status);
+  return d;
+}
+
+$("send").addEventListener("click", async () => {
+  const btn = $("send");
+  btn.disabled = true;
+  hideAlert();
+  $("bar").classList.add("show");
+
+  const validProg = DATA.prog.filter((p) => p.qtd > 0);
+  const total = DATA.refs.length + validProg.length || 1;
+  let done = 0, fails = [];
+  const step = () => { done++; $("barfill").style.width = Math.round((done / total) * 100) + "%"; };
+
+  // 1) referências primeiro (o programa depende delas)
+  for (const r of DATA.refs) {
+    try {
+      if (r.caixaCod && r.pcsCaixa > 0) {
+        await post("referencias", {
+          codigo: r.cod,
+          descricao: r.desc,
+          umc: r.umc,
+          itens: [{ componenteCodigo: r.caixaCod, componenteDescricao: r.caixaDesc || r.caixaCod, pcsPorUmc: r.pcsCaixa }],
+        });
+      } else {
+        await post("materiais", { codigo: r.cod, descricao: r.desc, umc: r.umc, tipo: "acabado" });
+      }
+    } catch (e) {
+      fails.push("ref " + r.cod + ": " + e.message);
+    }
+    step();
+    $("status").textContent = `Enviando referências… ${done}/${total}`;
+  }
+
+  // 2) programa — precisa do nome e do id de cada referência
+  if (validProg.length) {
+    const nomePrograma = $("nome-programa").value.trim();
+    if (!nomePrograma) {
+      fails.push("programa: informe o nome do programa antes de enviar");
+    } else {
+      try {
+        const programa = await post("programas", { nome: nomePrograma });
+        const acabados = await fetch("/api/materiais?tipo=acabado").then((r) => r.json());
+        const porCodigo = new Map(acabados.map((a) => [up(a.codigo), a.id]));
+
+        for (const p of validProg) {
+          try {
+            const materialId = porCodigo.get(p.cod);
+            if (!materialId) throw new Error("referência não encontrada — cadastre-a antes ou inclua na aba REFERENCIAS");
+            await post("programa-itens", { programaId: programa.id, materialId, qtdProduzir: p.qtd });
+          } catch (e) {
+            fails.push("prog " + p.cod + ": " + e.message);
+          }
+          step();
+          $("status").textContent = `Enviando programa… ${done}/${total}`;
+        }
+      } catch (e) {
+        fails.push("programa: " + e.message);
+      }
+    }
+  }
+
+  if (fails.length) {
+    showAlert("e", `Concluído com ${fails.length} erro(s). Primeiros: ` + fails.slice(0, 3).join(" | "));
+    $("status").textContent = "Finalizado com erros.";
+  } else {
+    showAlert("s", `Tudo certo! ${DATA.refs.length} referência(s) e ${validProg.length} linha(s) de programa enviadas.`);
+    $("status").textContent = "Importação concluída.";
+  }
+  btn.disabled = false;
+});
+</script>
+</body>
+</html>

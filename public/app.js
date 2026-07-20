@@ -6,6 +6,7 @@ const NAV_ITEMS = [
   { href: "/estoque.html", label: "Estoque" },
   { href: "/programas.html", label: "Programa" },
   { href: "/resultado.html", label: "Resultado" },
+  { href: "/importar.html", label: "Importar Programa", newTab: true },
 ];
 
 function renderShell() {
@@ -21,7 +22,7 @@ function renderShell() {
     <div class="snl">Navegação</div>
     ${NAV_ITEMS.map(
       (item) =>
-        `<a class="ni ${atual === item.href ? "active" : ""}" href="${item.href}">${item.label}</a>`
+        `<a class="ni ${atual === item.href ? "active" : ""}" href="${item.href}"${item.newTab ? ' target="_blank"' : ""}>${item.label}</a>`
     ).join("")}
     <div class="sfoot">
       <span class="muted">InBetta — PCP</span>
