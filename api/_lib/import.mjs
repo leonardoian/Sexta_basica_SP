@@ -7,11 +7,12 @@ function normalizarHeader(h) {
 }
 
 // Mapeamento esperado (ajustar quando a planilha real chegar):
-// MATERIAL -> codigo | DESCRIÇÃO -> descricao | ESTOQUE -> estoque
+// MATERIAL -> codigo | DESCRIÇÃO -> descricao | ESTOQUE -> estoque | UMC -> umc
 // (NEC PROG e SALDO ainda não são usados pelo cálculo)
 const CANDIDATOS_CODIGO = ["MATERIAL", "CODIGO", "COD MATERIAL"];
 const CANDIDATOS_DESCRICAO = ["DESCRICAO", "DESCRIÇÃO", "DESC"];
 const CANDIDATOS_ESTOQUE = ["ESTOQUE", "SALDO", "QTD ESTOQUE"];
+const CANDIDATOS_UMC = ["UMC"];
 
 export function parseEstoqueSheet(buffer) {
   const workbook = XLSX.read(buffer, { type: "buffer" });
@@ -26,13 +27,15 @@ export function parseEstoqueSheet(buffer) {
         CANDIDATOS_DESCRICAO.includes(normalizarHeader(h))
       );
       const colEstoque = headers.find((h) => CANDIDATOS_ESTOQUE.includes(normalizarHeader(h)));
+      const colUmc = headers.find((h) => CANDIDATOS_UMC.includes(normalizarHeader(h)));
 
       const codigo = colCodigo ? String(linha[colCodigo] ?? "").trim() : "";
       const estoque = colEstoque ? Number(linha[colEstoque] ?? 0) : 0;
 
       return {
         codigo,
-        descricao: colDescricao ? String(linha[colDescricao] ?? "") : undefined,
+        descricao: colDescricao ? String(linha[colDescricao] ?? "").trim() : "",
+        umc: colUmc ? String(linha[colUmc] ?? "").trim() : "",
         estoque: Number.isFinite(estoque) ? estoque : 0,
       };
     })

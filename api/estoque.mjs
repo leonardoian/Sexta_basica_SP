@@ -23,6 +23,7 @@ export default async function handler(req, res) {
                COALESCE(e.qtd_atual, 0) AS qtd_atual, e.atualizado_em
         FROM materiais m
         LEFT JOIN estoque e ON e.material_id = m.id
+        WHERE m.tipo = 'componente'
         ORDER BY m.codigo
       `;
       return res.status(200).json(rows);

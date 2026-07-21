@@ -26,15 +26,25 @@ export default async function handler(req, res) {
     const linhas = parseEstoqueSheet(buffer);
 
     let atualizados = 0;
-    const naoEncontrados = [];
+    let criados = 0;
 
     for (const linha of linhas) {
       const materialRows = await sql`SELECT id FROM materiais WHERE codigo = ${linha.codigo}`;
+      let materialId;
+
       if (materialRows.length === 0) {
-        naoEncontrados.push(linha.codigo);
-        continue;
+        // código não cadastrado ainda: cria o componente na hora
+        const novoRows = await sql`
+          INSERT INTO materiais (codigo, descricao, umc, tipo)
+          VALUES (${linha.codigo}, ${linha.descricao || linha.codigo}, ${linha.umc || "PC"}, 'componente')
+          RETURNING id
+        `;
+        materialId = novoRows[0].id;
+        criados++;
+      } else {
+        materialId = materialRows[0].id;
       }
-      const materialId = materialRows[0].id;
+
       await sql`
         INSERT INTO estoque (material_id, qtd_atual, atualizado_em)
         VALUES (${materialId}, ${linha.estoque}, now())
@@ -43,7 +53,7 @@ export default async function handler(req, res) {
       atualizados++;
     }
 
-    return res.status(200).json({ total: linhas.length, atualizados, naoEncontrados });
+    return res.status(200).json({ total: linhas.length, atualizados, criados });
   } catch (e) {
     return res.status(500).json({ error: e.message });
   }
