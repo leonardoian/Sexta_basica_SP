@@ -33,8 +33,24 @@ export function getSQL() {
 }
 
 // Mesmo schema de db/schema.sql, em versão idempotente (IF NOT EXISTS) —
-// roda a cada request, então o deploy não depende de um passo de migração.
-export async function initDB(sql) {
+// não depende de um passo de migração separado no deploy. Só executa de
+// fato na primeira chamada de cada instância "quente" da function (cada
+// CREATE IF NOT EXISTS é uma viagem HTTP à parte pro Neon — ~1s no total —
+// e não muda depois que as tabelas já existem, então cachear evita pagar
+// esse custo em toda request).
+let initPromise = null;
+
+export function initDB(sql) {
+  if (!initPromise) {
+    initPromise = runInit(sql).catch((err) => {
+      initPromise = null; // permite tentar de novo na próxima chamada se falhar
+      throw err;
+    });
+  }
+  return initPromise;
+}
+
+async function runInit(sql) {
   await sql`CREATE TABLE IF NOT EXISTS materiais (
     id          BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     codigo      TEXT NOT NULL UNIQUE,
