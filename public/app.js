@@ -2,7 +2,7 @@ const NAV_ITEMS = [
   { href: "/index.html", label: "Início" },
   { href: "/referencias.html", label: "Nova referência" },
   { href: "/materiais.html", label: "Materiais" },
-  { href: "/boms.html", label: "BOMs" },
+  { href: "/boms.html", label: "Editar lista técnica" },
   { href: "/estoque.html", label: "Estoque" },
   { href: "/programas.html", label: "Programa" },
   { href: "/resultado.html", label: "Resultado" },
