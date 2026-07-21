@@ -18,14 +18,18 @@ export default async function handler(req, res) {
 
   if (req.method === "GET") {
     const { tipo } = req.query;
-    // pecas_por_caixa: heurística — pega o item da BOM cujo componente parece
-    // ser a caixa (código/descrição com "CX" ou "CAIXA"). Só faz sentido pra
-    // acabados; vem null pra componentes (não têm BOM).
+    // caixa: heurística — pega o item da BOM cujo componente parece ser a
+    // caixa (código/descrição com "CX" ou "CAIXA"). Só faz sentido pra
+    // acabados; vem tudo null pra componentes (não têm BOM). Traz o id do
+    // componente junto (não só a quantidade) pra dar pra editar o item
+    // certo em vez de criar um duplicado.
     try {
       const rows = tipo
         ? await sql`
-            SELECT m.*, (
-              SELECT bi.pcs_por_umc
+            SELECT m.*, caixa.componente_id AS caixa_componente_id, caixa.pcs_por_umc AS pecas_por_caixa
+            FROM materiais m
+            LEFT JOIN LATERAL (
+              SELECT bi.pcs_por_umc, c.id AS componente_id
               FROM bom_itens bi
               JOIN boms b ON b.id = bi.bom_id
               JOIN materiais c ON c.id = bi.componente_id
@@ -33,12 +37,14 @@ export default async function handler(req, res) {
                 AND (c.codigo ILIKE '%CX%' OR c.codigo ILIKE '%CAIXA%' OR c.descricao ILIKE '%CAIXA%')
               ORDER BY bi.id
               LIMIT 1
-            ) AS pecas_por_caixa
-            FROM materiais m WHERE m.tipo = ${tipo} ORDER BY m.codigo
+            ) caixa ON true
+            WHERE m.tipo = ${tipo} ORDER BY m.codigo
           `
         : await sql`
-            SELECT m.*, (
-              SELECT bi.pcs_por_umc
+            SELECT m.*, caixa.componente_id AS caixa_componente_id, caixa.pcs_por_umc AS pecas_por_caixa
+            FROM materiais m
+            LEFT JOIN LATERAL (
+              SELECT bi.pcs_por_umc, c.id AS componente_id
               FROM bom_itens bi
               JOIN boms b ON b.id = bi.bom_id
               JOIN materiais c ON c.id = bi.componente_id
@@ -46,8 +52,8 @@ export default async function handler(req, res) {
                 AND (c.codigo ILIKE '%CX%' OR c.codigo ILIKE '%CAIXA%' OR c.descricao ILIKE '%CAIXA%')
               ORDER BY bi.id
               LIMIT 1
-            ) AS pecas_por_caixa
-            FROM materiais m ORDER BY m.codigo
+            ) caixa ON true
+            ORDER BY m.codigo
           `;
       return res.status(200).json(rows);
     } catch (e) {
