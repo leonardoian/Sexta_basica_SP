@@ -19,14 +19,22 @@
     <div class="content">
   <div class="card">
     <h2>Resultado do cálculo</h2>
-    <div class="row" style="justify-content: space-between">
+    <div class="row" style="justify-content: space-between; align-items: flex-end">
       <div style="max-width: 400px; flex: 1">
+        <label>Programa</label>
         <select id="sel-programa">
           <option value="">Escolha um programa</option>
         </select>
       </div>
+      <div style="width: 160px">
+        <label>Meses de estoque</label>
+        <input type="number" id="input-meses" value="1" min="0.5" step="0.5">
+      </div>
       <button id="btn-exportar" disabled>Exportar Excel</button>
     </div>
+    <p class="muted" style="margin-top: 8px; margin-bottom: 0">
+      Multiplica a necessidade do programa por esse número (ex: 2 = comprar pra cobrir 2 meses). Pode ajustar a qualquer hora, sem recalcular no servidor.
+    </p>
   </div>
 
   <div class="kg" id="kpi-grid" style="display:none">
@@ -102,57 +110,87 @@
     renderTabela();
   }
 
-  function renderKpis() {
+  function getFatorMeses() {
+    const v = Number(document.getElementById("input-meses").value);
+    return Number.isFinite(v) && v > 0 ? v : 1;
+  }
+
+  // aplica o multiplicador de "meses de estoque" sobre a necessidade bruta
+  // (que já vem arredondada pra cima por item, vinda do cálculo original)
+  // e reordena por a_comprar desc, igual ao critério original da query.
+  function linhasAjustadas() {
+    const fator = getFatorMeses();
+    return linhasAtuais
+      .map((l) => {
+        const necessidadeBase = Number(l.necessidade_total);
+        const estoqueAtual = Number(l.estoque_atual);
+        const necessidadeAjustada = Math.ceil(necessidadeBase * fator);
+        const aComprar = Math.max(0, necessidadeAjustada - estoqueAtual);
+        return {
+          ...l,
+          necessidade_total: necessidadeAjustada,
+          estoque_atual: estoqueAtual,
+          a_comprar: aComprar,
+        };
+      })
+      .sort((a, b) => b.a_comprar - a.a_comprar);
+  }
+
+  function renderKpis(linhas) {
     const kpiGrid = document.getElementById("kpi-grid");
-    if (linhasAtuais.length === 0) {
+    if (linhas.length === 0) {
       kpiGrid.style.display = "none";
       return;
     }
     kpiGrid.style.display = "grid";
-    const criticos = linhasAtuais.filter((l) => Number(l.a_comprar) > 0);
-    const soma = linhasAtuais.reduce((acc, l) => acc + Number(l.a_comprar), 0);
-    document.getElementById("kpi-total").textContent = linhasAtuais.length;
+    const criticos = linhas.filter((l) => l.a_comprar > 0);
+    const soma = linhas.reduce((acc, l) => acc + l.a_comprar, 0);
+    document.getElementById("kpi-total").textContent = linhas.length;
     document.getElementById("kpi-criticos").textContent = criticos.length;
-    document.getElementById("kpi-ok").textContent = linhasAtuais.length - criticos.length;
+    document.getElementById("kpi-ok").textContent = linhas.length - criticos.length;
     document.getElementById("kpi-soma").textContent = soma.toLocaleString("pt-BR");
   }
 
   function renderTabela() {
+    const linhas = linhasAjustadas();
     const tbody = document.getElementById("tbody");
-    tbody.innerHTML = linhasAtuais
-      .map((l) => {
-        const aComprar = Number(l.a_comprar);
-        return `
-          <tr class="${aComprar > 0 ? "a-comprar" : "ok"}">
+    tbody.innerHTML = linhas
+      .map(
+        (l) => `
+          <tr class="${l.a_comprar > 0 ? "a-comprar" : "ok"}">
             <td>${l.componente_codigo}</td>
             <td>${l.componente_descricao}</td>
             <td>${l.umc}</td>
             <td>${formatNum(l.necessidade_total)}</td>
             <td>${formatNum(l.estoque_atual)}</td>
             <td class="valor-comprar">${formatNum(l.a_comprar)}</td>
-          </tr>`;
-      })
+          </tr>`
+      )
       .join("");
-    document.getElementById("vazio").textContent = linhasAtuais.length
+    document.getElementById("vazio").textContent = linhas.length
       ? ""
       : "Nenhum componente calculado para este programa.";
-    document.getElementById("vazio").style.display = linhasAtuais.length ? "none" : "block";
-    document.getElementById("btn-exportar").disabled = linhasAtuais.length === 0;
-    renderKpis();
+    document.getElementById("vazio").style.display = linhas.length ? "none" : "block";
+    document.getElementById("btn-exportar").disabled = linhas.length === 0;
+    renderKpis(linhas);
   }
 
   document.getElementById("sel-programa").addEventListener("change", (e) => {
     calcular(e.target.value);
   });
 
+  document.getElementById("input-meses").addEventListener("input", renderTabela);
+
   document.getElementById("btn-exportar").addEventListener("click", () => {
-    const dados = linhasAtuais.map((l) => ({
+    const fator = getFatorMeses();
+    const dados = linhasAjustadas().map((l) => ({
       Componente: l.componente_codigo,
       Descrição: l.componente_descricao,
       UMC: l.umc,
-      "Necessidade total": Number(l.necessidade_total),
-      "Estoque atual": Number(l.estoque_atual),
-      "A comprar": Number(l.a_comprar),
+      "Meses de estoque": fator,
+      "Necessidade total": l.necessidade_total,
+      "Estoque atual": l.estoque_atual,
+      "A comprar": l.a_comprar,
     }));
     const ws = XLSX.utils.json_to_sheet(dados);
     const wb = XLSX.utils.book_new();
