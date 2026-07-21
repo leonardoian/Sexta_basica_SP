@@ -54,7 +54,7 @@
     <div class="tab-pane active" id="pane-acabados">
       <table>
         <thead>
-          <tr><th>Código</th><th>Descrição</th><th>UMC</th><th>Peças/caixa</th><th></th></tr>
+          <tr><th>Código</th><th>Descrição</th><th>UMC</th><th></th></tr>
         </thead>
         <tbody id="tbody-acabados"></tbody>
       </table>
@@ -96,27 +96,6 @@
       </div>
     </form>
 
-    <div id="editor-caixa" style="display:none; margin-top: 20px; border-top: 1px solid var(--border); padding-top: 20px">
-      <h2>Peças por caixa</h2>
-      <form id="form-caixa" class="row" style="margin-bottom: 8px">
-        <div style="flex: 1; min-width: 220px">
-          <label>Caixa (componente)</label>
-          <select id="edit-caixa-componente" required></select>
-          <div id="edit-caixa-novo" class="grid cols-3" style="display:none; margin-top: 8px">
-            <input id="edit-caixa-novo-codigo" placeholder="Código">
-            <input id="edit-caixa-novo-descricao" placeholder="Descrição">
-            <input id="edit-caixa-novo-umc" placeholder="UMC" value="CX">
-          </div>
-        </div>
-        <div style="width: 160px">
-          <label>Peças por caixa</label>
-          <input type="number" id="edit-caixa-pcs" min="0" step="any" placeholder="ex: 6" required>
-        </div>
-        <button type="submit">Salvar</button>
-      </form>
-      <p class="erro" id="edit-caixa-erro" style="display:none"></p>
-    </div>
-
     <div id="editor-bom" style="display:none; margin-top: 20px; border-top: 1px solid var(--border); padding-top: 20px">
       <h2>Lista técnica</h2>
       <form id="form-bom-item" class="row" style="margin-bottom: 16px">
@@ -145,10 +124,9 @@
 </div>
 <script src="/app.js"></script>
 <script>
-  const NOVO_COMPONENTE = "__novo__";
   let materiaisPorId = new Map();
   let componentesDisponiveis = [];
-  let editando = null; // { id, tipo, bomId, caixaComponenteId }
+  let editando = null; // { id, tipo, bomId }
 
   function linhaMaterial(m) {
     return `
@@ -156,20 +134,6 @@
         <td>${m.codigo}</td>
         <td>${m.descricao}</td>
         <td>${m.umc}</td>
-        <td>
-          <button class="secondary" onclick="abrirEditor(${m.id})">Editar</button>
-          <button class="ghost" onclick="excluir(${m.id})">Excluir</button>
-        </td>
-      </tr>`;
-  }
-
-  function linhaAcabado(m) {
-    return `
-      <tr>
-        <td>${m.codigo}</td>
-        <td>${m.descricao}</td>
-        <td>${m.umc}</td>
-        <td>${m.pecas_por_caixa != null ? formatNum(m.pecas_por_caixa) : "<span class='muted'>—</span>"}</td>
         <td>
           <button class="secondary" onclick="abrirEditor(${m.id})">Editar</button>
           <button class="ghost" onclick="excluir(${m.id})">Excluir</button>
@@ -185,7 +149,7 @@
     componentesDisponiveis = componentes;
 
     document.getElementById("count-acabados").textContent = acabados.length ? `(${acabados.length})` : "";
-    document.getElementById("tbody-acabados").innerHTML = acabados.map(linhaAcabado).join("");
+    document.getElementById("tbody-acabados").innerHTML = acabados.map(linhaMaterial).join("");
     document.getElementById("vazio-acabados").style.display = acabados.length ? "none" : "block";
 
     document.getElementById("count-componentes").textContent = componentes.length ? `(${componentes.length})` : "";
@@ -217,12 +181,7 @@
   async function abrirEditor(id) {
     const m = materiaisPorId.get(Number(id));
     if (!m) return;
-    editando = {
-      id: Number(m.id),
-      tipo: m.tipo,
-      bomId: null,
-      caixaComponenteId: m.caixa_componente_id ? Number(m.caixa_componente_id) : null,
-    };
+    editando = { id: Number(m.id), tipo: m.tipo, bomId: null };
 
     document.getElementById("editor").style.display = "block";
     document.getElementById("edit-tipo-label").textContent = `(${m.tipo})`;
@@ -233,32 +192,16 @@
     document.getElementById("editor").scrollIntoView({ behavior: "smooth", block: "start" });
 
     const editorBom = document.getElementById("editor-bom");
-    const editorCaixa = document.getElementById("editor-caixa");
     if (m.tipo === "acabado") {
       editorBom.style.display = "block";
-      editorCaixa.style.display = "block";
-
-      const opcoesComponenteSimples = componentesDisponiveis
+      document.getElementById("edit-componente").innerHTML = componentesDisponiveis
         .map((c) => `<option value="${c.id}">${c.codigo} — ${c.descricao}</option>`)
         .join("");
-      document.getElementById("edit-componente").innerHTML = opcoesComponenteSimples;
-      document.getElementById("edit-caixa-componente").innerHTML =
-        `<option value="${NOVO_COMPONENTE}">+ Novo componente</option>` + opcoesComponenteSimples;
-
-      document.getElementById("edit-caixa-erro").style.display = "none";
-      document.getElementById("edit-caixa-novo").style.display = "none";
-      document.getElementById("edit-caixa-componente").value = editando.caixaComponenteId
-        ? String(editando.caixaComponenteId)
-        : NOVO_COMPONENTE;
-      document.getElementById("edit-caixa-pcs").value =
-        m.pecas_por_caixa != null ? formatNum(m.pecas_por_caixa) : "";
-
       const bom = await api("/api/boms", { method: "POST", body: JSON.stringify({ materialId: id }) });
       editando.bomId = bom.id;
       await carregarItensBom();
     } else {
       editorBom.style.display = "none";
-      editorCaixa.style.display = "none";
     }
   }
 
@@ -286,52 +229,6 @@
   }
 
   document.getElementById("btn-cancelar-edicao").addEventListener("click", fecharEditor);
-
-  document.getElementById("edit-caixa-componente").addEventListener("change", (e) => {
-    document.getElementById("edit-caixa-novo").style.display =
-      e.target.value === NOVO_COMPONENTE ? "grid" : "none";
-  });
-
-  document.getElementById("form-caixa").addEventListener("submit", async (e) => {
-    e.preventDefault();
-    if (!editando || !editando.bomId) return;
-    const erroEl = document.getElementById("edit-caixa-erro");
-    erroEl.style.display = "none";
-    try {
-      let componenteId = document.getElementById("edit-caixa-componente").value;
-      if (componenteId === NOVO_COMPONENTE) {
-        const novoCodigo = document.getElementById("edit-caixa-novo-codigo").value;
-        const novoDescricao = document.getElementById("edit-caixa-novo-descricao").value;
-        const novoUmc = document.getElementById("edit-caixa-novo-umc").value || "CX";
-        if (!novoCodigo) throw new Error("informe o código da caixa nova");
-        const novoComponente = await api("/api/materiais", {
-          method: "POST",
-          body: JSON.stringify({
-            codigo: novoCodigo,
-            descricao: novoDescricao || novoCodigo,
-            umc: novoUmc,
-            tipo: "componente",
-          }),
-        });
-        componenteId = novoComponente.id;
-      }
-
-      await api("/api/bom-itens", {
-        method: "POST",
-        body: JSON.stringify({
-          bomId: editando.bomId,
-          componenteId: Number(componenteId),
-          pcsPorUmc: Number(document.getElementById("edit-caixa-pcs").value),
-        }),
-      });
-
-      await carregar();
-      await carregarItensBom();
-    } catch (err) {
-      erroEl.textContent = err.message;
-      erroEl.style.display = "block";
-    }
-  });
 
   document.getElementById("form-editar").addEventListener("submit", async (e) => {
     e.preventDefault();

@@ -18,43 +18,10 @@ export default async function handler(req, res) {
 
   if (req.method === "GET") {
     const { tipo } = req.query;
-    // caixa: heurística — pega o item da BOM cujo componente parece ser a
-    // caixa (código/descrição com "CX" ou "CAIXA"). Só faz sentido pra
-    // acabados; vem tudo null pra componentes (não têm BOM). Traz o id do
-    // componente junto (não só a quantidade) pra dar pra editar o item
-    // certo em vez de criar um duplicado.
     try {
       const rows = tipo
-        ? await sql`
-            SELECT m.*, caixa.componente_id AS caixa_componente_id, caixa.pcs_por_umc AS pecas_por_caixa
-            FROM materiais m
-            LEFT JOIN LATERAL (
-              SELECT bi.pcs_por_umc, c.id AS componente_id
-              FROM bom_itens bi
-              JOIN boms b ON b.id = bi.bom_id
-              JOIN materiais c ON c.id = bi.componente_id
-              WHERE b.material_id = m.id
-                AND (c.codigo ILIKE '%CX%' OR c.codigo ILIKE '%CAIXA%' OR c.descricao ILIKE '%CAIXA%')
-              ORDER BY bi.id
-              LIMIT 1
-            ) caixa ON true
-            WHERE m.tipo = ${tipo} ORDER BY m.codigo
-          `
-        : await sql`
-            SELECT m.*, caixa.componente_id AS caixa_componente_id, caixa.pcs_por_umc AS pecas_por_caixa
-            FROM materiais m
-            LEFT JOIN LATERAL (
-              SELECT bi.pcs_por_umc, c.id AS componente_id
-              FROM bom_itens bi
-              JOIN boms b ON b.id = bi.bom_id
-              JOIN materiais c ON c.id = bi.componente_id
-              WHERE b.material_id = m.id
-                AND (c.codigo ILIKE '%CX%' OR c.codigo ILIKE '%CAIXA%' OR c.descricao ILIKE '%CAIXA%')
-              ORDER BY bi.id
-              LIMIT 1
-            ) caixa ON true
-            ORDER BY m.codigo
-          `;
+        ? await sql`SELECT * FROM materiais WHERE tipo = ${tipo} ORDER BY codigo`
+        : await sql`SELECT * FROM materiais ORDER BY codigo`;
       return res.status(200).json(rows);
     } catch (e) {
       return res.status(500).json({ error: e.message });
