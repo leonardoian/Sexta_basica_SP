@@ -41,18 +41,6 @@
       <a id="link-resultado" href="#"><button type="button" class="secondary">Ver resultado</button></a>
     </div>
 
-    <form id="form-item" class="row" style="margin-bottom: 16px">
-      <div style="flex: 1; min-width: 220px">
-        <label>Referência (acabado)</label>
-        <select id="sel-material" required></select>
-      </div>
-      <div style="width: 160px">
-        <label>Qtd. a produzir</label>
-        <input type="number" id="input-qtd" min="0" step="any" required>
-      </div>
-      <button type="submit">Adicionar</button>
-    </form>
-
     <p class="erro" id="erro" style="display:none"></p>
 
     <table>
@@ -69,6 +57,8 @@
 <script src="/app.js"></script>
 <script>
   let programaId = null;
+  let itensAtuais = [];
+  let editandoItemId = null;
 
   async function carregarProgramas() {
     const programas = await api("/api/programas");
@@ -78,30 +68,70 @@
       programas.map((p) => `<option value="${p.id}">${p.nome} (${p.status})</option>`).join("");
   }
 
-  async function carregarAcabados() {
-    const acabados = await api("/api/materiais?tipo=acabado");
-    document.getElementById("sel-material").innerHTML = acabados
-      .map((a) => `<option value="${a.id}">${a.codigo} — ${a.descricao}</option>`)
-      .join("");
-  }
-
   async function carregarItens(id) {
     document.getElementById("card-itens").style.display = id ? "block" : "none";
     if (!id) return;
     document.getElementById("link-resultado").href = `/resultado.html?programaId=${id}`;
-    const itens = await api(`/api/programa-itens?programaId=${id}`);
-    document.getElementById("tbody").innerHTML = itens
-      .map(
-        (it) => `
-        <tr>
+    editandoItemId = null;
+    itensAtuais = await api(`/api/programa-itens?programaId=${id}`);
+    renderItens();
+  }
+
+  function linhaItem(it) {
+    if (editandoItemId === Number(it.id)) {
+      return `
+        <tr data-item-id="${it.id}">
           <td>${it.material_codigo}</td>
           <td>${it.material_descricao}</td>
-          <td>${formatNum(it.qtd_produzir)}</td>
-          <td><button class="ghost" onclick="removerItem(${it.id})">Remover</button></td>
-        </tr>`
-      )
-      .join("");
-    document.getElementById("vazio").style.display = itens.length ? "none" : "block";
+          <td><input type="number" min="0" step="any" class="input-qtd-edit" value="${formatNum(it.qtd_produzir)}" style="width:120px"></td>
+          <td>
+            <button onclick="salvarItem(${it.id}, ${it.material_id})">Salvar</button>
+            <button class="secondary" onclick="cancelarEdicaoItem()">Cancelar</button>
+          </td>
+        </tr>`;
+    }
+    return `
+      <tr data-item-id="${it.id}">
+        <td>${it.material_codigo}</td>
+        <td>${it.material_descricao}</td>
+        <td>${formatNum(it.qtd_produzir)}</td>
+        <td>
+          <button class="secondary" onclick="editarItem(${it.id})">Editar</button>
+          <button class="ghost" onclick="removerItem(${it.id})">Remover</button>
+        </td>
+      </tr>`;
+  }
+
+  function renderItens() {
+    document.getElementById("tbody").innerHTML = itensAtuais.map(linhaItem).join("");
+    document.getElementById("vazio").style.display = itensAtuais.length ? "none" : "block";
+  }
+
+  function editarItem(itemId) {
+    editandoItemId = Number(itemId);
+    renderItens();
+  }
+
+  function cancelarEdicaoItem() {
+    editandoItemId = null;
+    renderItens();
+  }
+
+  async function salvarItem(itemId, materialId) {
+    const erroEl = document.getElementById("erro");
+    erroEl.style.display = "none";
+    const linha = document.querySelector(`tr[data-item-id="${itemId}"]`);
+    const qtdProduzir = Number(linha.querySelector(".input-qtd-edit").value);
+    try {
+      await api("/api/programa-itens", {
+        method: "POST",
+        body: JSON.stringify({ programaId, materialId, qtdProduzir }),
+      });
+      await carregarItens(programaId);
+    } catch (err) {
+      erroEl.textContent = err.message;
+      erroEl.style.display = "block";
+    }
   }
 
   async function removerItem(itemId) {
@@ -126,29 +156,7 @@
     await carregarItens(programaId);
   });
 
-  document.getElementById("form-item").addEventListener("submit", async (e) => {
-    e.preventDefault();
-    const erroEl = document.getElementById("erro");
-    erroEl.style.display = "none";
-    try {
-      await api("/api/programa-itens", {
-        method: "POST",
-        body: JSON.stringify({
-          programaId,
-          materialId: Number(document.getElementById("sel-material").value),
-          qtdProduzir: Number(document.getElementById("input-qtd").value),
-        }),
-      });
-      document.getElementById("input-qtd").value = "";
-      await carregarItens(programaId);
-    } catch (err) {
-      erroEl.textContent = err.message;
-      erroEl.style.display = "block";
-    }
-  });
-
   carregarProgramas();
-  carregarAcabados();
 </script>
 </body>
 </html>
