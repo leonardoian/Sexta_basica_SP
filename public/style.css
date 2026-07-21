@@ -51,14 +51,14 @@ h1, h2, h3, .brand-mark, .kpi-value {
 }
 
 .brand-mark {
-  font-size: 22px;
+  font-size: 19px;
   font-weight: 700;
   line-height: 1;
   letter-spacing: 0.5px;
 }
 
 .brand-sub {
-  font-size: 22px;
+  font-size: 19px;
   font-weight: 900;
   color: var(--accent);
   line-height: 1.1;
@@ -67,7 +67,7 @@ h1, h2, h3, .brand-mark, .kpi-value {
 
 .snl {
   padding: 4px 20px;
-  font-size: 11px;
+  font-size: 10px;
   text-transform: uppercase;
   letter-spacing: 1px;
   color: var(--muted);
@@ -76,7 +76,7 @@ h1, h2, h3, .brand-mark, .kpi-value {
 
 .ni {
   padding: 10px 20px;
-  font-size: 14px;
+  font-size: 13px;
   color: #c9cacd;
   cursor: pointer;
   text-decoration: none;
@@ -120,13 +120,13 @@ h1, h2, h3, .brand-mark, .kpi-value {
 }
 
 .topbar-title {
-  font-size: 22px;
+  font-size: 19px;
   font-weight: 700;
   font-family: "Barlow Condensed", sans-serif;
 }
 
 .topbar-date {
-  font-size: 12px;
+  font-size: 11px;
   color: var(--muted);
 }
 
@@ -148,7 +148,7 @@ h1, h2, h3, .brand-mark, .kpi-value {
 
 .card h2 {
   margin: 0 0 16px;
-  font-size: 17px;
+  font-size: 15px;
   font-weight: 700;
 }
 
@@ -167,7 +167,7 @@ h1, h2, h3, .brand-mark, .kpi-value {
 }
 
 .kpi-label {
-  font-size: 11px;
+  font-size: 10px;
   text-transform: uppercase;
   letter-spacing: 0.5px;
   color: var(--muted);
@@ -175,13 +175,13 @@ h1, h2, h3, .brand-mark, .kpi-value {
 }
 
 .kpi-value {
-  font-size: 30px;
+  font-size: 26px;
   font-weight: 700;
   line-height: 1;
 }
 
 .kpi-hint {
-  font-size: 11px;
+  font-size: 10px;
   color: var(--muted);
   margin-top: 6px;
 }
@@ -205,7 +205,7 @@ h1, h2, h3, .brand-mark, .kpi-value {
 
 label {
   display: block;
-  font-size: 12px;
+  font-size: 11px;
   text-transform: uppercase;
   letter-spacing: 0.3px;
   color: var(--muted);
@@ -217,7 +217,7 @@ input, select {
   padding: 9px 10px;
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  font-size: 14px;
+  font-size: 13px;
   background: var(--surface-2);
   color: var(--text);
 }
@@ -236,7 +236,7 @@ button {
   border: none;
   border-radius: var(--radius);
   padding: 9px 18px;
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.3px;
@@ -268,7 +268,7 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
 table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 14px;
+  font-size: 13px;
 }
 
 th, td {
@@ -280,7 +280,7 @@ th, td {
 th {
   color: var(--muted);
   font-weight: 600;
-  font-size: 11px;
+  font-size: 10px;
   text-transform: uppercase;
   letter-spacing: 0.5px;
 }
@@ -297,8 +297,8 @@ tr.ok td.valor-comprar {
   font-weight: 700;
 }
 
-.muted { color: var(--muted); font-size: 13px; }
-.erro { color: var(--accent); font-size: 13px; }
+.muted { color: var(--muted); font-size: 12px; }
+.erro { color: var(--accent); font-size: 12px; }
 
 .row {
   display: flex;
@@ -330,7 +330,7 @@ tr.ok td.valor-comprar {
   background: var(--surface);
   cursor: pointer;
   text-align: center;
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.5px;
@@ -375,7 +375,7 @@ tr.ok td.valor-comprar {
 
 .combo-option {
   padding: 8px 12px;
-  font-size: 14px;
+  font-size: 13px;
   cursor: pointer;
 }
 
@@ -385,7 +385,7 @@ tr.ok td.valor-comprar {
 
 .combo-empty {
   padding: 8px 12px;
-  font-size: 13px;
+  font-size: 12px;
   color: var(--muted);
 }
 
@@ -399,4 +399,4 @@ tr.ok td.valor-comprar {
 .sections a { text-decoration: none; color: inherit; }
 .sections .card { height: 100%; transition: border-color 0.15s; }
 .sections a:hover .card { border-color: var(--accent); }
-.sections .card p { margin: 4px 0 0; color: var(--muted); font-size: 13px; }
+.sections .card p { margin: 4px 0 0; color: var(--muted); font-size: 12px; }
