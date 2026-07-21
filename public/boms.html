@@ -18,7 +18,7 @@
     <div class="content">
   <div class="card">
     <h2>Selecionar acabado</h2>
-    <select id="sel-acabado" style="max-width: 400px"></select>
+    <div id="combo-acabado" style="max-width: 400px"></div>
   </div>
 
   <div class="card" id="card-bom" style="display:none">
@@ -35,7 +35,7 @@
     <form id="form-item" class="row" style="margin-bottom: 16px">
       <div style="flex: 1; min-width: 220px">
         <label>Componente</label>
-        <select id="sel-componente" required></select>
+        <div id="combo-componente"></div>
       </div>
       <div style="width: 160px">
         <label>Peças por UMC</label>
@@ -61,36 +61,40 @@
 <script>
   let bomId = null;
   let acabadoAtual = null;
+  let acabadosPorId = new Map();
+  let comboComponente = null;
 
   async function carregarAcabados() {
     const acabados = await api("/api/materiais?tipo=acabado");
-    const sel = document.getElementById("sel-acabado");
-    sel.innerHTML =
-      `<option value="">Escolha o material acabado</option>` +
-      acabados.map((a) => `<option value="${a.id}" data-codigo="${a.codigo}">${a.codigo} — ${a.descricao}</option>`).join("");
+    acabadosPorId = new Map(acabados.map((a) => [String(a.id), a]));
+    const opcoes = acabados.map((a) => ({ value: a.id, label: `${a.codigo} — ${a.descricao}` }));
+    const combo = criarCombo("combo-acabado", opcoes, {
+      placeholder: "Digite o código ou descrição do acabado...",
+      onChange: (value) => carregarBom(value),
+    });
 
     const params = new URLSearchParams(window.location.search);
     const materialId = params.get("materialId");
     if (materialId) {
-      sel.value = materialId;
+      combo.value = materialId;
       await carregarBom(materialId);
     }
   }
 
   async function carregarComponentes() {
     const componentes = await api("/api/materiais?tipo=componente");
-    document.getElementById("sel-componente").innerHTML = componentes
-      .map((c) => `<option value="${c.id}">${c.codigo} — ${c.descricao}</option>`)
-      .join("");
+    const opcoes = componentes.map((c) => ({ value: c.id, label: `${c.codigo} — ${c.descricao}` }));
+    comboComponente = criarCombo("combo-componente", opcoes, {
+      placeholder: "Digite o código ou descrição do componente...",
+    });
   }
 
   async function carregarBom(materialId) {
     document.getElementById("card-bom").style.display = materialId ? "block" : "none";
     if (!materialId) return;
 
-    const sel = document.getElementById("sel-acabado");
-    const opt = sel.querySelector(`option[value="${materialId}"]`);
-    acabadoAtual = opt ? opt.dataset.codigo : null;
+    const acabado = acabadosPorId.get(String(materialId));
+    acabadoAtual = acabado ? acabado.codigo : null;
 
     const bom = await api("/api/boms", {
       method: "POST",
@@ -122,20 +126,21 @@
     await renderItens();
   }
 
-  document.getElementById("sel-acabado").addEventListener("change", (e) => {
-    carregarBom(e.target.value);
-  });
-
   document.getElementById("form-item").addEventListener("submit", async (e) => {
     e.preventDefault();
     const erroEl = document.getElementById("erro");
     erroEl.style.display = "none";
+    if (!comboComponente || !comboComponente.value) {
+      erroEl.textContent = "escolha um componente";
+      erroEl.style.display = "block";
+      return;
+    }
     try {
       await api("/api/bom-itens", {
         method: "POST",
         body: JSON.stringify({
           bomId,
-          componenteId: Number(document.getElementById("sel-componente").value),
+          componenteId: Number(comboComponente.value),
           pcsPorUmc: Number(document.getElementById("input-pcs").value),
         }),
       });

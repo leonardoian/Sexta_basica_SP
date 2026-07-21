@@ -81,6 +81,7 @@
   let editando = null; // { id, tipo, bomId }
   let itensBomEditando = [];
   let carregandoItensBom = false;
+  let comboBomComponente = null;
 
   function linhaMaterial(m) {
     const linha = `
@@ -136,9 +137,6 @@
     if (carregandoItensBom) {
       return `<div class="muted" style="margin-top: 20px; border-top: 1px solid var(--border); padding-top: 20px">Carregando lista técnica...</div>`;
     }
-    const opcoes = componentesDisponiveis
-      .map((c) => `<option value="${c.id}">${c.codigo} — ${c.descricao}</option>`)
-      .join("");
     const linhasItens = itensBomEditando
       .map(
         (it) => `
@@ -157,7 +155,7 @@
         <form class="row" style="margin-bottom: 16px" onsubmit="adicionarItemBom(event)">
           <div style="flex: 1; min-width: 220px">
             <label>Componente</label>
-            <select name="componente" required>${opcoes}</select>
+            <div id="combo-bom-componente"></div>
           </div>
           <div style="width: 160px">
             <label>Peças por UMC</label>
@@ -195,6 +193,19 @@
     document.getElementById("count-componentes").textContent = componentes.length ? `(${componentes.length})` : "";
     document.getElementById("tbody-componentes").innerHTML = componentes.map(linhaMaterial).join("");
     document.getElementById("vazio-componentes").style.display = componentes.length ? "none" : "block";
+
+    montarComboListaTecnica();
+  }
+
+  function montarComboListaTecnica() {
+    if (!editando || editando.tipo !== "acabado" || carregandoItensBom) {
+      comboBomComponente = null;
+      return;
+    }
+    const opcoes = componentesDisponiveis.map((c) => ({ value: c.id, label: `${c.codigo} — ${c.descricao}` }));
+    comboBomComponente = criarCombo("combo-bom-componente", opcoes, {
+      placeholder: "Digite o código ou descrição do componente...",
+    });
   }
 
   document.querySelectorAll(".tab-btn").forEach((btn) =>
@@ -281,12 +292,19 @@
     const form = event.target;
     const erroEl = document.getElementById("edit-bom-erro");
     if (erroEl) erroEl.style.display = "none";
+    if (!comboBomComponente || !comboBomComponente.value) {
+      if (erroEl) {
+        erroEl.textContent = "escolha um componente";
+        erroEl.style.display = "block";
+      }
+      return;
+    }
     try {
       await api("/api/bom-itens", {
         method: "POST",
         body: JSON.stringify({
           bomId: editando.bomId,
-          componenteId: Number(form.componente.value),
+          componenteId: Number(comboBomComponente.value),
           pcsPorUmc: Number(form.pcs.value),
         }),
       });

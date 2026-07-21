@@ -52,6 +52,7 @@
   const NOVO_COMPONENTE = "__novo__";
   let componentes = [];
   let itemCount = 0;
+  let combosPorLinha = new Map();
 
   function novaLinha() {
     const idx = itemCount++;
@@ -62,11 +63,7 @@
       <div class="grid cols-3">
         <div>
           <label>Componente</label>
-          <select class="sel-componente">
-            <option value="">Escolha ou crie um componente</option>
-            <option value="${NOVO_COMPONENTE}">+ Novo componente</option>
-            ${componentes.map((c) => `<option value="${c.id}">${c.codigo} — ${c.descricao}</option>`).join("")}
-          </select>
+          <div id="combo-componente-${idx}"></div>
           <div class="novo-componente grid cols-3" style="display:none; margin-top: 8px">
             <input class="novo-codigo" placeholder="Código">
             <input class="novo-descricao" placeholder="Descrição">
@@ -82,20 +79,33 @@
         </div>
       </div>
     `;
-    div.querySelector(".sel-componente").addEventListener("change", (e) => {
-      div.querySelector(".novo-componente").style.display =
-        e.target.value === NOVO_COMPONENTE ? "grid" : "none";
-    });
-    div.querySelector(".btn-remover").addEventListener("click", () => {
-      if (document.querySelectorAll("#itens .item-row").length > 1) div.remove();
-    });
     document.getElementById("itens").appendChild(div);
+
+    const opcoes = [
+      { value: NOVO_COMPONENTE, label: "+ Novo componente" },
+      ...componentes.map((c) => ({ value: c.id, label: `${c.codigo} — ${c.descricao}` })),
+    ];
+    const combo = criarCombo(`combo-componente-${idx}`, opcoes, {
+      placeholder: "Digite o código/descrição ou escolha + Novo componente...",
+      onChange: (value) => {
+        div.querySelector(".novo-componente").style.display = value === NOVO_COMPONENTE ? "grid" : "none";
+      },
+    });
+    combosPorLinha.set(idx, combo);
+
+    div.querySelector(".btn-remover").addEventListener("click", () => {
+      if (document.querySelectorAll("#itens .item-row").length > 1) {
+        combosPorLinha.delete(idx);
+        div.remove();
+      }
+    });
   }
 
   function coletarItens() {
     const linhas = document.querySelectorAll("#itens .item-row");
     return Array.from(linhas).map((linha) => {
-      const componenteId = linha.querySelector(".sel-componente").value;
+      const combo = combosPorLinha.get(Number(linha.dataset.idx));
+      const componenteId = combo ? combo.value : "";
       const pcsPorUmc = Number(linha.querySelector(".input-pcs").value);
       if (componenteId === NOVO_COMPONENTE) {
         return {

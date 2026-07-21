@@ -65,6 +65,63 @@ async function api(path, opts = {}) {
   return data;
 }
 
+// Combobox com busca por texto (digita e filtra), no lugar de um <select>
+// nativo com lista longa. `opcoes` é [{ value, label }]. Retorna um objeto
+// com getter/setter de `value` pra ler/pré-preencher a seleção atual.
+function criarCombo(containerId, opcoes, { placeholder = "Digite para buscar...", onChange } = {}) {
+  const container = document.getElementById(containerId);
+  let valorAtual = "";
+
+  container.classList.add("combo");
+  container.innerHTML = `
+    <input type="text" class="combo-input" placeholder="${placeholder}" autocomplete="off">
+    <div class="combo-list"></div>
+  `;
+  const input = container.querySelector(".combo-input");
+  const list = container.querySelector(".combo-list");
+
+  function render(filtro) {
+    const termo = filtro.trim().toLowerCase();
+    const filtradas = termo ? opcoes.filter((o) => o.label.toLowerCase().includes(termo)) : opcoes;
+    list.innerHTML = filtradas.length
+      ? filtradas
+          .slice(0, 50)
+          .map((o) => `<div class="combo-option" data-value="${o.value}">${o.label}</div>`)
+          .join("")
+      : `<div class="combo-empty">Nenhum resultado</div>`;
+    list.classList.add("show");
+  }
+
+  input.addEventListener("focus", () => render(input.value));
+  input.addEventListener("input", () => {
+    valorAtual = "";
+    if (onChange) onChange("");
+    render(input.value);
+  });
+  list.addEventListener("mousedown", (e) => {
+    const opt = e.target.closest(".combo-option");
+    if (!opt) return;
+    valorAtual = opt.dataset.value;
+    input.value = opt.textContent;
+    list.classList.remove("show");
+    if (onChange) onChange(valorAtual);
+  });
+  document.addEventListener("click", (e) => {
+    if (!container.contains(e.target)) list.classList.remove("show");
+  });
+
+  return {
+    get value() {
+      return valorAtual;
+    },
+    set value(v) {
+      valorAtual = v ? String(v) : "";
+      const opt = opcoes.find((o) => String(o.value) === valorAtual);
+      input.value = opt ? opt.label : "";
+    },
+  };
+}
+
 function fileParaBase64(file) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
