@@ -30,6 +30,7 @@
   .tabs { display: flex; gap: 8px; margin-bottom: 14px; }
   .tab { flex: 1; padding: 13px; border: 1px solid var(--border); background: var(--surface); cursor: pointer; text-align: center; }
   .tab.active { border-color: var(--accent); background: rgba(232,52,63,.08); }
+  .tab.hidden { display: none; }
   .tab .n { font-size: 10px; letter-spacing: 2px; text-transform: uppercase; color: var(--muted); }
   .tab.active .n { color: var(--accent); }
   .tab .c { font-family: "Barlow Condensed", sans-serif; font-size: 21px; font-weight: 800; margin-top: 4px; }
@@ -69,18 +70,19 @@
     <h1>Importar <span>Planilha</span></h1>
     <a class="back" href="/programas.html">← Voltar ao sistema</a>
   </header>
-  <p class="sub">Envie a planilha (.xlsx). O sistema lê as abas <b>REFERENCIAS</b> e <b>PROGRAMA</b>, mostra uma
-    prévia do que será gravado e envia para o banco. Na aba de referências, a coluna de <b>peças por caixa</b>
-    já cadastra a lista técnica (componente caixa) junto com a referência.</p>
+  <p class="sub">Envie a planilha (.xlsx). Reconhece tanto um modelo simples (abas <b>REFERENCIAS</b>/<b>PROGRAMA</b>)
+    quanto um export direto do SAP: aba <b>LISTA TECNICA</b> (lista técnica de todas as referências),
+    aba de programa mensal (código + quantidade), e abas de estoque por depósito
+    (<b>Material</b>/<b>Utilização livre</b>/<b>UMB</b>). O sistema detecta sozinho o que tem no arquivo.</p>
 
   <div id="alert" class="alert"></div>
 
   <div class="row" style="justify-content: space-between; align-items: flex-end; margin-bottom: 16px">
     <div class="field" style="margin-bottom: 0">
-      <label for="nome-programa">Nome do programa (para os itens da aba PROGRAMA)</label>
+      <label for="nome-programa">Nome do programa (se o arquivo tiver aba de programa)</label>
       <input id="nome-programa" placeholder="ex: Programa Julho/2026">
     </div>
-    <button type="button" class="secondary" id="btn-modelo">⬇ Baixar modelo de planilha</button>
+    <button type="button" class="secondary" id="btn-modelo">⬇ Baixar modelo simples</button>
   </div>
 
   <label class="drop" id="drop">
@@ -92,19 +94,22 @@
 
   <div id="result" style="display:none">
     <div class="tabs">
-      <div class="tab active" data-pane="refs">
-        <div class="n">Referências</div><div class="c" id="cnt-refs">0</div>
+      <div class="tab active" data-pane="refs" id="tabbtn-refs">
+        <div class="n" id="tabnome-refs">Referências</div><div class="c" id="cnt-refs">0</div>
       </div>
-      <div class="tab" data-pane="prog">
+      <div class="tab" data-pane="prog" id="tabbtn-prog">
         <div class="n">Programa</div><div class="c" id="cnt-prog">0</div>
+      </div>
+      <div class="tab" data-pane="estoque" id="tabbtn-estoque">
+        <div class="n">Estoque</div><div class="c" id="cnt-estoque">0</div>
       </div>
     </div>
 
     <div class="pane active" id="pane-refs">
       <div class="meta" id="meta-refs"></div>
       <div class="tablewrap">
-        <table>
-          <thead><tr><th>Código</th><th>Descrição</th><th>UMC</th><th>Caixa</th><th>Peças/caixa</th><th>Status</th></tr></thead>
+        <table id="tabela-refs">
+          <thead id="thead-refs"><tr><th>Código</th><th>Descrição</th><th>UMC</th><th>Caixa</th><th>Peças/caixa</th><th>Status</th></tr></thead>
           <tbody id="tb-refs"></tbody>
         </table>
       </div>
@@ -120,12 +125,22 @@
       </div>
     </div>
 
+    <div class="pane" id="pane-estoque">
+      <div class="meta" id="meta-estoque"></div>
+      <div class="tablewrap">
+        <table>
+          <thead><tr><th>Código</th><th>Descrição</th><th>Depósito</th><th>UMC</th><th>Estoque</th></tr></thead>
+          <tbody id="tb-estoque"></tbody>
+        </table>
+      </div>
+    </div>
+
     <div class="bar">
       <div class="status" id="status">Confira a prévia e envie.</div>
       <button id="send">Enviar para o sistema</button>
     </div>
     <div class="prog" id="bar"><i id="barfill"></i></div>
-    <div class="hint">Referências são enviadas primeiro (o programa depende delas). Itens existentes são atualizados.</div>
+    <div class="hint">Referências/lista técnica são enviadas primeiro (o programa depende delas). Itens existentes são atualizados.</div>
   </div>
 </div>
 
@@ -134,9 +149,11 @@ const $ = (id) => document.getElementById(id);
 function showAlert(type, msg) { const a = $("alert"); a.className = "alert show " + type; a.textContent = msg; }
 function hideAlert() { $("alert").className = "alert"; }
 
-let DATA = { refs: [], prog: [] };
+let DATA = { refs: [], listaTecnica: [], prog: [], estoque: [] };
+let modoRefs = null; // "simples" | "sap" | null
+let fileBase64 = "";
 
-// ---------- modelo de planilha ----------
+// ---------- modelo de planilha (fluxo simples) ----------
 $("btn-modelo").addEventListener("click", () => {
   const refsSheet = XLSX.utils.aoa_to_sheet([
     ["CODIGO", "DESCRICAO", "UMC", "CAIXA", "PECAS POR CAIXA"],
@@ -164,12 +181,14 @@ fileInput.addEventListener("change", (e) => { if (e.target.files.length) handleF
 // ---------- helpers de leitura ----------
 const norm = (s) => String(s == null ? "" : s).trim();
 const up = (s) => norm(s).toUpperCase();
+// normaliza cabeçalho tirando acento (Depósito -> DEPOSITO, Utilização -> UTILIZACAO)
+const normHeader = (s) => norm(s).normalize("NFD").replace(/[̀-ͯ]/g, "").toUpperCase();
 const toNum = (v) => { const n = parseFloat(String(v).replace(",", ".").replace(/[^\d.-]/g, "")); return isNaN(n) ? 0 : n; };
 
 function findHeader(rows, keys) {
   let best = -1, bestScore = 0;
   for (let i = 0; i < Math.min(rows.length, 10); i++) {
-    const joined = rows[i].map(up).join("|");
+    const joined = rows[i].map(normHeader).join("|");
     const score = keys.reduce((s, k) => s + (joined.includes(k) ? 1 : 0), 0);
     if (score > bestScore) { bestScore = score; best = i; }
   }
@@ -177,7 +196,7 @@ function findHeader(rows, keys) {
 }
 
 function colMap(headerRow, defs) {
-  const H = headerRow.map(up);
+  const H = headerRow.map(normHeader);
   const out = {};
   for (const [key, words] of Object.entries(defs)) {
     out[key] = H.findIndex((h) => words.some((w) => h.includes(w)));
@@ -186,7 +205,7 @@ function colMap(headerRow, defs) {
 }
 
 function sheetRows(wb, name) {
-  const found = wb.SheetNames.find((n) => up(n).includes(name)) || wb.SheetNames[0];
+  const found = wb.SheetNames.find((n) => normHeader(n).includes(name)) || wb.SheetNames[0];
   return XLSX.utils.sheet_to_json(wb.Sheets[found], { header: 1, blankrows: false, defval: "" });
 }
 
@@ -195,9 +214,12 @@ function handleFile(file) {
   const reader = new FileReader();
   reader.onload = (e) => {
     try {
-      const wb = XLSX.read(new Uint8Array(e.target.result), { type: "array" });
-      parseRefs(wb);
+      const bytes = new Uint8Array(e.target.result);
+      const wb = XLSX.read(bytes, { type: "array" });
+      fileBase64 = btoa(String.fromCharCode(...bytes));
+      parseRefsOuListaTecnica(wb);
       parseProg(wb);
+      parseEstoqueDepositos(wb);
       renderAll(file.name);
     } catch (err) {
       showAlert("e", "Não consegui ler o arquivo: " + err.message);
@@ -206,20 +228,33 @@ function handleFile(file) {
   reader.readAsArrayBuffer(file);
 }
 
-// ---------- parsing ----------
-function parseRefs(wb) {
+// ---------- parsing: referências (simples) ou lista técnica (SAP, em massa) ----------
+function parseRefsOuListaTecnica(wb) {
   DATA.refs = [];
+  DATA.listaTecnica = [];
+  modoRefs = null;
+
+  const nomeSap = wb.SheetNames.find((n) => normHeader(n).includes("LISTA TECNICA"));
+  if (nomeSap) {
+    const itens = parseListaTecnica(wb, nomeSap);
+    if (itens.length > 0) {
+      DATA.listaTecnica = itens;
+      modoRefs = "sap";
+      return;
+    }
+  }
+
   const rows = sheetRows(wb, "REFERENC");
   if (!rows) return;
-  const hi = findHeader(rows, ["CODIGO", "CÓDIGO", "DESCRI", "CAIXA", "PECAS", "PEÇAS"]);
+  const hi = findHeader(rows, ["CODIGO", "DESCRI", "CAIXA", "PECAS"]);
   if (hi < 0) return;
   const c = colMap(rows[hi], {
-    cod: ["CODIGO", "CÓDIGO", "COD REF", "REFERENCIA"],
-    desc: ["DESCRICAO", "DESCRIÇÃO", "DESC"],
+    cod: ["CODIGO", "COD REF", "REFERENCIA"],
+    desc: ["DESCRICAO", "DESC"],
     umc: ["UMC"],
     caixaCod: ["CAIXA", "COMPONENTE", "EMBALAGEM"],
     caixaDesc: ["DESC CAIXA", "DESCRICAO CAIXA", "DESC EMBALAGEM"],
-    pcsCaixa: ["PECAS POR CAIXA", "PEÇAS POR CAIXA", "PCS CAIXA", "PCS/CAIXA", "PECAS CAIXA", "QTD CAIXA", "QTD UMC"],
+    pcsCaixa: ["PECAS POR CAIXA", "PCS CAIXA", "PCS/CAIXA", "PECAS CAIXA", "QTD CAIXA", "QTD UMC"],
   });
   for (let r = hi + 1; r < rows.length; r++) {
     const cod = up(rows[r][c.cod]);
@@ -231,17 +266,72 @@ function parseRefs(wb) {
     const pcsCaixa = c.pcsCaixa >= 0 ? toNum(rows[r][c.pcsCaixa]) : 0;
     DATA.refs.push({ cod, desc, umc, caixaCod, caixaDesc, pcsCaixa });
   }
+  modoRefs = "simples";
 }
 
+// Layout SAP: "Material" e "Texto breve material" aparecem 2x (referência e
+// componente); "CONS.Unit" é o consumo do componente por peça produzida
+// (pcsPorUmc = 1 / CONS.Unit).
+function parseListaTecnica(wb, sheetName) {
+  const rows = XLSX.utils.sheet_to_json(wb.Sheets[sheetName], { header: 1, blankrows: false, defval: "" });
+
+  let hi = -1;
+  for (let i = 0; i < Math.min(rows.length, 10); i++) {
+    const linha = rows[i].map(normHeader);
+    if (linha.filter((c) => c === "MATERIAL").length >= 2 && linha.some((c) => c.includes("CONS"))) {
+      hi = i;
+      break;
+    }
+  }
+  if (hi < 0) return [];
+
+  const header = rows[hi].map(normHeader);
+  const idxMaterial = [], idxTexto = [];
+  header.forEach((h, i) => {
+    if (h === "MATERIAL") idxMaterial.push(i);
+    if (h === "TEXTO BREVE MATERIAL") idxTexto.push(i);
+  });
+  const idxUmb = header.findIndex((h) => h === "UMB");
+  const idxCons = header.findIndex((h) => h.includes("CONS"));
+  if (idxMaterial.length < 2 || idxTexto.length < 2 || idxCons < 0) return [];
+
+  const [colRef, colComp] = idxMaterial;
+  const [colRefDesc, colCompDesc] = idxTexto;
+
+  const itens = [];
+  for (let r = hi + 1; r < rows.length; r++) {
+    const linha = rows[r];
+    const refCod = norm(linha[colRef]);
+    const compCod = norm(linha[colComp]);
+    const consUnit = toNum(linha[idxCons]);
+    if (!refCod || !compCod || !(consUnit > 0)) continue;
+
+    let pcs = 1 / consUnit;
+    const arred = Math.round(pcs);
+    pcs = Math.abs(pcs - arred) < 0.02 ? arred : Math.round(pcs * 10000) / 10000;
+
+    itens.push({
+      refCod,
+      refDesc: norm(linha[colRefDesc]) || refCod,
+      compCod,
+      compDesc: norm(linha[colCompDesc]) || compCod,
+      compUmc: idxUmb >= 0 ? norm(linha[idxUmb]) || "PC" : "PC",
+      pcs,
+    });
+  }
+  return itens;
+}
+
+// ---------- parsing: programa ----------
 function parseProg(wb) {
   DATA.prog = [];
   const rows = sheetRows(wb, "PROGRAMA");
   if (!rows) return;
-  const hi = findHeader(rows, ["REFERENCIA", "CODIGO", "QUANTIDADE", "QTD"]);
+  const hi = findHeader(rows, ["REFERENCIA", "CODIGO", "QUANTIDADE", "QTD", "REF", "PROGR"]);
   if (hi < 0) return;
   const c = colMap(rows[hi], {
-    cod: ["REFERENCIA", "CODIGO", "CÓDIGO", "COD REF"],
-    qtd: ["QTD A PRODUZIR", "QUANTIDADE", "QTD PRODUZIR", "QTD"],
+    cod: ["REFERENCIA", "CODIGO", "COD REF", "REF"],
+    qtd: ["QTD A PRODUZIR", "QUANTIDADE", "QTD PRODUZIR", "PROGR", "QTD"],
   });
   for (let r = hi + 1; r < rows.length; r++) {
     const cod = up(rows[r][c.cod]);
@@ -251,40 +341,127 @@ function parseProg(wb) {
   }
 }
 
+// ---------- parsing: estoque por depósito (varre todas as abas) ----------
+function parseEstoqueDepositos(wb) {
+  DATA.estoque = [];
+  for (const sheetName of wb.SheetNames) {
+    const raw = XLSX.utils.sheet_to_json(wb.Sheets[sheetName], { defval: null });
+    if (!raw.length) continue;
+    const headers = Object.keys(raw[0]);
+    const findCol = (cands) => headers.find((h) => cands.includes(normHeader(h)));
+    const colCodigo = findCol(["MATERIAL", "CODIGO", "COD MATERIAL"]);
+    const colEstoque = findCol(["ESTOQUE", "SALDO", "QTD ESTOQUE", "UTILIZACAO LIVRE"]);
+    if (!colCodigo || !colEstoque) continue;
+    const colDescricao = findCol(["DESCRICAO", "DESC", "TEXTO BREVE MATERIAL"]);
+    const colUmc = findCol(["UMC", "UMB"]);
+    const colDeposito = findCol(["DEPOSITO"]);
+
+    for (const linha of raw) {
+      const codigo = norm(linha[colCodigo]);
+      if (!codigo) continue;
+      DATA.estoque.push({
+        codigo,
+        descricao: colDescricao ? norm(linha[colDescricao]) : "",
+        umc: colUmc ? norm(linha[colUmc]) : "",
+        deposito: colDeposito ? norm(linha[colDeposito]) || sheetName.trim() : sheetName.trim(),
+        estoque: toNum(linha[colEstoque]),
+      });
+    }
+  }
+}
+
 // ---------- render ----------
 function renderAll(fname) {
-  const okRefs = DATA.refs.length, okProg = DATA.prog.length;
-  if (!okRefs && !okProg) {
-    showAlert("e", "Não encontrei dados nas abas REFERENCIAS ou PROGRAMA. Confira os cabeçalhos (CODIGO, DESCRICAO, QTD...).");
+  const temRefs = DATA.refs.length > 0;
+  const temSap = DATA.listaTecnica.length > 0;
+  const temProg = DATA.prog.length > 0;
+  const temEstoque = DATA.estoque.length > 0;
+
+  if (!temRefs && !temSap && !temProg && !temEstoque) {
+    showAlert("e", "Não reconheci nenhuma aba (Referências, Lista Técnica, Programa ou Estoque) nesse arquivo.");
     return;
   }
   $("result").style.display = "block";
-  $("cnt-refs").textContent = okRefs;
-  $("cnt-prog").textContent = okProg;
 
-  $("meta-refs").innerHTML = `Arquivo: <b>${fname}</b> &nbsp;·&nbsp; Linhas: <b>${okRefs}</b>`;
-  $("tb-refs").innerHTML = DATA.refs.map((r) => {
-    const temCaixa = r.caixaCod && r.pcsCaixa > 0;
-    return `<tr>
-      <td class="cod">${r.cod}</td>
-      <td>${r.desc}</td>
-      <td>${r.umc}</td>
-      <td>${r.caixaCod || "<span style='color:var(--muted)'>—</span>"}</td>
-      <td class="num">${r.pcsCaixa || "—"}</td>
-      <td>${temCaixa ? '<span class="pill ok">com lista técnica</span>' : '<span class="pill bad">só material</span>'}</td>
-    </tr>`;
-  }).join("");
+  // aba 1: referências (simples) ou lista técnica (SAP)
+  if (modoRefs === "sap") {
+    $("tabnome-refs").textContent = "Lista técnica";
+    $("thead-refs").innerHTML = "<tr><th>Referência</th><th>Descrição</th><th>Nº componentes</th></tr>";
+    const porRef = new Map();
+    for (const it of DATA.listaTecnica) {
+      if (!porRef.has(it.refCod)) porRef.set(it.refCod, { desc: it.refDesc, n: 0 });
+      porRef.get(it.refCod).n++;
+    }
+    $("cnt-refs").textContent = porRef.size;
+    $("meta-refs").innerHTML = `Arquivo: <b>${fname}</b> &nbsp;·&nbsp; Referências: <b>${porRef.size}</b> &nbsp;·&nbsp; Itens de lista técnica: <b>${DATA.listaTecnica.length}</b>`;
+    $("tb-refs").innerHTML = [...porRef.entries()]
+      .map(([cod, v]) => `<tr><td class="cod">${cod}</td><td>${v.desc}</td><td class="num">${v.n}</td></tr>`)
+      .join("");
+  } else {
+    $("tabnome-refs").textContent = "Referências";
+    $("thead-refs").innerHTML = "<tr><th>Código</th><th>Descrição</th><th>UMC</th><th>Caixa</th><th>Peças/caixa</th><th>Status</th></tr>";
+    $("cnt-refs").textContent = DATA.refs.length;
+    $("meta-refs").innerHTML = `Arquivo: <b>${fname}</b> &nbsp;·&nbsp; Linhas: <b>${DATA.refs.length}</b>`;
+    $("tb-refs").innerHTML = DATA.refs.map((r) => {
+      const temCaixa = r.caixaCod && r.pcsCaixa > 0;
+      return `<tr>
+        <td class="cod">${r.cod}</td>
+        <td>${r.desc}</td>
+        <td>${r.umc}</td>
+        <td>${r.caixaCod || "<span style='color:var(--muted)'>—</span>"}</td>
+        <td class="num">${r.pcsCaixa || "—"}</td>
+        <td>${temCaixa ? '<span class="pill ok">com lista técnica</span>' : '<span class="pill bad">só material</span>'}</td>
+      </tr>`;
+    }).join("");
+  }
+  $("tabbtn-refs").classList.toggle("hidden", !temRefs && !temSap);
 
-  $("meta-prog").innerHTML = `Linhas: <b>${okProg}</b> &nbsp;·&nbsp; Programa: <b>${$("nome-programa").value || "(informe o nome acima)"}</b>`;
+  // aba 2: programa
+  $("cnt-prog").textContent = DATA.prog.length;
+  $("meta-prog").innerHTML = `Linhas: <b>${DATA.prog.length}</b> &nbsp;·&nbsp; Programa: <b>${$("nome-programa").value || "(informe o nome acima)"}</b>`;
   $("tb-prog").innerHTML = DATA.prog.map((p) => `
     <tr class="${!p.qtd ? "skip" : ""}">
       <td class="cod">${p.cod}</td>
       <td class="num">${p.qtd.toLocaleString("pt-BR")}</td>
       <td>${p.qtd ? '<span class="pill ok">ok</span>' : '<span class="pill bad">sem quantidade</span>'}</td>
     </tr>`).join("");
+  $("tabbtn-prog").classList.toggle("hidden", !temProg);
 
-  $("status").textContent = `Pronto: ${okRefs} referência(s) e ${DATA.prog.filter((p) => p.qtd > 0).length} linha(s) de programa válidas.`;
-  $("send").disabled = okRefs + okProg === 0;
+  // aba 3: estoque por depósito
+  const depositos = [...new Set(DATA.estoque.map((l) => l.deposito))];
+  $("cnt-estoque").textContent = DATA.estoque.length;
+  $("meta-estoque").innerHTML = `Linhas: <b>${DATA.estoque.length}</b> &nbsp;·&nbsp; Depósitos: <b>${depositos.join(", ") || "—"}</b>`;
+  $("tb-estoque").innerHTML = DATA.estoque
+    .slice(0, 2000)
+    .map((l) => `<tr>
+      <td class="cod">${l.codigo}</td>
+      <td>${l.descricao}</td>
+      <td>${l.deposito}</td>
+      <td>${l.umc}</td>
+      <td class="num">${l.estoque.toLocaleString("pt-BR")}</td>
+    </tr>`).join("");
+  $("tabbtn-estoque").classList.toggle("hidden", !temEstoque);
+
+  // ativa a primeira aba com dados
+  const primeiraComDado = ["refs", "prog", "estoque"].find((p) => {
+    if (p === "refs") return temRefs || temSap;
+    if (p === "prog") return temProg;
+    return temEstoque;
+  });
+  document.querySelectorAll(".tab").forEach((t) => t.classList.remove("active"));
+  document.querySelectorAll(".pane").forEach((p) => p.classList.remove("active"));
+  if (primeiraComDado) {
+    $("tabbtn-" + primeiraComDado).classList.add("active");
+    $("pane-" + primeiraComDado).classList.add("active");
+  }
+
+  const partes = [];
+  if (temSap) partes.push(`${[...new Set(DATA.listaTecnica.map((i) => i.refCod))].length} referência(s) com lista técnica`);
+  else if (temRefs) partes.push(`${DATA.refs.length} referência(s)`);
+  if (temProg) partes.push(`${DATA.prog.filter((p) => p.qtd > 0).length} linha(s) de programa`);
+  if (temEstoque) partes.push(`${DATA.estoque.length} linha(s) de estoque`);
+  $("status").textContent = "Pronto: " + partes.join(", ") + ".";
+  $("send").disabled = partes.length === 0;
 }
 
 // ---------- tabs ----------
@@ -312,33 +489,47 @@ $("send").addEventListener("click", async () => {
   btn.disabled = true;
   hideAlert();
   $("bar").classList.add("show");
+  $("barfill").style.width = "0%";
 
-  const validProg = DATA.prog.filter((p) => p.qtd > 0);
-  const total = DATA.refs.length + validProg.length || 1;
-  let done = 0, fails = [];
-  const step = () => { done++; $("barfill").style.width = Math.round((done / total) * 100) + "%"; };
+  const fails = [];
+  const resumo = [];
 
-  // 1) referências primeiro (o programa depende delas)
-  for (const r of DATA.refs) {
+  // 1) referências / lista técnica primeiro (programa depende delas)
+  if (modoRefs === "sap") {
+    $("status").textContent = "Enviando lista técnica (pode levar alguns segundos)...";
     try {
-      if (r.caixaCod && r.pcsCaixa > 0) {
-        await post("referencias", {
-          codigo: r.cod,
-          descricao: r.desc,
-          umc: r.umc,
-          itens: [{ componenteCodigo: r.caixaCod, componenteDescricao: r.caixaDesc || r.caixaCod, pcsPorUmc: r.pcsCaixa }],
-        });
-      } else {
-        await post("materiais", { codigo: r.cod, descricao: r.desc, umc: r.umc, tipo: "acabado" });
-      }
+      const r = await post("lista-tecnica-importar", { contentBase64: fileBase64 });
+      resumo.push(`${r.acabados} referência(s) e ${r.componentes} componente(s), ${r.itensGravados} itens de lista técnica`);
+      $("barfill").style.width = "40%";
     } catch (e) {
-      fails.push("ref " + r.cod + ": " + e.message);
+      fails.push("lista técnica: " + e.message);
     }
-    step();
-    $("status").textContent = `Enviando referências… ${done}/${total}`;
+  } else if (DATA.refs.length) {
+    let done = 0;
+    for (const r of DATA.refs) {
+      try {
+        if (r.caixaCod && r.pcsCaixa > 0) {
+          await post("referencias", {
+            codigo: r.cod,
+            descricao: r.desc,
+            umc: r.umc,
+            itens: [{ componenteCodigo: r.caixaCod, componenteDescricao: r.caixaDesc || r.caixaCod, pcsPorUmc: r.pcsCaixa }],
+          });
+        } else {
+          await post("materiais", { codigo: r.cod, descricao: r.desc, umc: r.umc, tipo: "acabado" });
+        }
+      } catch (e) {
+        fails.push("ref " + r.cod + ": " + e.message);
+      }
+      done++;
+      $("status").textContent = `Enviando referências… ${done}/${DATA.refs.length}`;
+      $("barfill").style.width = Math.round((done / DATA.refs.length) * 40) + "%";
+    }
+    resumo.push(`${DATA.refs.length} referência(s)`);
   }
 
   // 2) programa — precisa do nome e do id de cada referência
+  const validProg = DATA.prog.filter((p) => p.qtd > 0);
   if (validProg.length) {
     const nomePrograma = $("nome-programa").value.trim();
     if (!nomePrograma) {
@@ -349,28 +540,45 @@ $("send").addEventListener("click", async () => {
         const acabados = await fetch("/api/materiais?tipo=acabado").then((r) => r.json());
         const porCodigo = new Map(acabados.map((a) => [up(a.codigo), a.id]));
 
+        let done = 0;
         for (const p of validProg) {
           try {
             const materialId = porCodigo.get(p.cod);
-            if (!materialId) throw new Error("referência não encontrada — cadastre-a antes ou inclua na aba REFERENCIAS");
+            if (!materialId) throw new Error("referência não encontrada — importe a lista técnica antes ou cadastre-a");
             await post("programa-itens", { programaId: programa.id, materialId, qtdProduzir: p.qtd });
           } catch (e) {
             fails.push("prog " + p.cod + ": " + e.message);
           }
-          step();
-          $("status").textContent = `Enviando programa… ${done}/${total}`;
+          done++;
+          $("status").textContent = `Enviando programa… ${done}/${validProg.length}`;
+          $("barfill").style.width = 40 + Math.round((done / validProg.length) * 30) + "%";
         }
+        resumo.push(`${validProg.length} linha(s) de programa`);
       } catch (e) {
         fails.push("programa: " + e.message);
       }
     }
   }
 
+  // 3) estoque por depósito
+  if (DATA.estoque.length) {
+    $("status").textContent = "Enviando estoque por depósito...";
+    try {
+      const r = await post("estoque-depositos-importar", { contentBase64: fileBase64 });
+      resumo.push(`${r.materiaisAtualizados} material(is) de estoque (${r.depositos.join(", ")})`);
+      $("barfill").style.width = "100%";
+    } catch (e) {
+      fails.push("estoque: " + e.message);
+    }
+  } else {
+    $("barfill").style.width = "100%";
+  }
+
   if (fails.length) {
     showAlert("e", `Concluído com ${fails.length} erro(s). Primeiros: ` + fails.slice(0, 3).join(" | "));
     $("status").textContent = "Finalizado com erros.";
   } else {
-    showAlert("s", `Tudo certo! ${DATA.refs.length} referência(s) e ${validProg.length} linha(s) de programa enviadas.`);
+    showAlert("s", `Tudo certo! ${resumo.join(", ")} enviado(s).`);
     $("status").textContent = "Importação concluída.";
   }
   btn.disabled = false;

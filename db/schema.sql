@@ -32,11 +32,22 @@ CREATE TABLE bom_itens (
   UNIQUE (bom_id, componente_id)
 );
 
--- Estoque atual por material
+-- Estoque atual por material (total — soma dos depósitos)
 CREATE TABLE estoque (
   material_id   BIGINT PRIMARY KEY REFERENCES materiais(id) ON DELETE CASCADE,
   qtd_atual     NUMERIC(14,2) NOT NULL DEFAULT 0,
   atualizado_em TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- Estoque por depósito (ex: 0802, 0805, 0806). "estoque.qtd_atual" é o
+-- total (soma dos depósitos) e é o que o cálculo de compra usa; esta
+-- tabela é o detalhamento/origem desse total.
+CREATE TABLE estoque_depositos (
+  material_id   BIGINT NOT NULL REFERENCES materiais(id) ON DELETE CASCADE,
+  deposito      TEXT NOT NULL,
+  qtd_atual     NUMERIC(14,2) NOT NULL DEFAULT 0,
+  atualizado_em TIMESTAMPTZ NOT NULL DEFAULT now(),
+  PRIMARY KEY (material_id, deposito)
 );
 
 -- Programa de produção (cabeçalho)

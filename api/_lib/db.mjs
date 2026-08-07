@@ -82,6 +82,18 @@ async function runInit(sql) {
     atualizado_em TIMESTAMPTZ NOT NULL DEFAULT now()
   )`;
 
+  // Estoque por depósito (ex: 0802, 0805, 0806) — usado quando a planilha
+  // real traz o saldo separado por depósito. "estoque.qtd_atual" continua
+  // sendo o total (soma dos depósitos) e é o que o cálculo de compra usa;
+  // esta tabela é só o detalhamento/origem desse total.
+  await sql`CREATE TABLE IF NOT EXISTS estoque_depositos (
+    material_id   BIGINT NOT NULL REFERENCES materiais(id) ON DELETE CASCADE,
+    deposito      TEXT NOT NULL,
+    qtd_atual     NUMERIC(14,2) NOT NULL DEFAULT 0,
+    atualizado_em TIMESTAMPTZ NOT NULL DEFAULT now(),
+    PRIMARY KEY (material_id, deposito)
+  )`;
+
   await sql`CREATE TABLE IF NOT EXISTS programas (
     id         BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     nome       TEXT NOT NULL,
