@@ -7,11 +7,17 @@
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;900&family=Barlow:wght@300;400;500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/style.css">
 <style>
-  body { display: flex; align-items: center; justify-content: center; min-height: 100vh; }
-  .login-box { width: 100%; max-width: 340px; padding: 32px; }
-  .login-box .brand-mark { font-size: 26px; text-align: center; margin-bottom: 2px; }
-  .login-box .brand-sub { font-size: 26px; text-align: center; margin-bottom: 24px; }
-  .login-box button { width: 100%; margin-top: 8px; }
+  body {
+    display: flex; align-items: center; justify-content: center; min-height: 100vh;
+    background-image:
+      repeating-linear-gradient(0deg, transparent, transparent 39px, var(--border) 40px),
+      repeating-linear-gradient(90deg, transparent, transparent 39px, var(--border) 40px);
+  }
+  .login-box { width: 100%; max-width: 360px; padding: 40px 36px; border-top: 3px solid var(--accent); }
+  .login-box .brand-mark { font: 900 34px/1 var(--fh); text-align: center; margin-bottom: 2px; }
+  .login-box .brand-sub { font: 900 34px/1 var(--fh); text-align: center; margin-bottom: 30px; }
+  .login-box label { text-align: left; }
+  .login-box button { width: 100%; margin-top: 10px; padding: 13px; font-size: 15px; }
 </style>
 </head>
 <body>

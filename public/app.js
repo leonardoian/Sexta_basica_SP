@@ -30,16 +30,26 @@ function logout() {
 })();
 
 const NAV_ITEMS = [
-  { href: "/index.html", label: "Início" },
-  { href: "/referencias.html", label: "Nova referência" },
-  { href: "/materiais.html", label: "Materiais" },
-  { href: "/boms.html", label: "Editar lista técnica" },
-  { href: "/estoque.html", label: "Estoque" },
-  { href: "/programas.html", label: "Programa" },
-  { href: "/resultado.html", label: "Resultado" },
-  { href: "/importar.html", label: "Importar Programa" },
-  { href: "/usuarios.html", label: "Usuários" },
+  { href: "/index.html", label: "Início", ic: "◈" },
+  { href: "/referencias.html", label: "Nova referência", ic: "◉" },
+  { href: "/materiais.html", label: "Materiais", ic: "☰" },
+  { href: "/boms.html", label: "Editar lista técnica", ic: "⊞" },
+  { href: "/estoque.html", label: "Estoque", ic: "⊟" },
+  { href: "/programas.html", label: "Programa", ic: "⊕" },
+  { href: "/resultado.html", label: "Resultado", ic: "◎" },
+  { href: "/importar.html", label: "Importar Programa", ic: "⬆" },
+  { href: "/usuarios.html", label: "Usuários", ic: "◈" },
 ];
+
+function toggleSidebar() {
+  document.getElementById("sidebar")?.classList.toggle("open");
+  document.getElementById("overlay-sb")?.classList.toggle("open");
+}
+
+function closeSidebar() {
+  document.getElementById("sidebar")?.classList.remove("open");
+  document.getElementById("overlay-sb")?.classList.remove("open");
+}
 
 function renderShell() {
   const sidebar = document.getElementById("sidebar");
@@ -48,17 +58,20 @@ function renderShell() {
 
   sidebar.innerHTML = `
     <div class="slogo">
-      <div class="brand-mark">PLANEJ.</div>
-      <div class="brand-sub">COMPRAS</div>
+      <div class="tag">Sistema de</div>
+      <div class="name">PLANEJ.<br><span>COMPRAS</span></div>
     </div>
-    <div class="snl">Navegação</div>
-    ${NAV_ITEMS.map(
-      (item) =>
-        `<a class="ni ${atual === item.href ? "active" : ""}" href="${item.href}"${item.newTab ? ' target="_blank"' : ""}>${item.label}</a>`
-    ).join("")}
+    <div class="snav">
+      <div class="snl">Navegação</div>
+      ${NAV_ITEMS.map(
+        (item) =>
+          `<a class="ni ${atual === item.href ? "active" : ""}" href="${item.href}"${item.newTab ? ' target="_blank"' : ""}><span class="ic">${item.ic}</span>${item.label}</a>`
+      ).join("")}
+    </div>
     <div class="sfoot">
-      <div class="muted" style="margin-bottom: 8px">${getUsuarioLogado()?.nome || ""}</div>
-      <button type="button" class="secondary" onclick="logout()" style="width:100%">Sair</button>
+      <div class="un">${getUsuarioLogado()?.nome || ""}</div>
+      <div class="ur">${getUsuarioLogado()?.login || ""}</div>
+      <button type="button" class="btn-out" onclick="logout()">Sair</button>
     </div>
   `;
 
@@ -77,6 +90,45 @@ function renderShell() {
       year: "numeric",
     });
   }
+
+  const topbar = document.querySelector(".topbar");
+  if (topbar && !topbar.querySelector(".btn-menu")) {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "btn-menu";
+    btn.textContent = "☰";
+    btn.onclick = toggleSidebar;
+    topbar.firstElementChild
+      ? topbar.insertBefore(btn, topbar.firstElementChild)
+      : topbar.appendChild(btn);
+  }
+
+  if (!document.getElementById("overlay-sb")) {
+    const overlay = document.createElement("div");
+    overlay.id = "overlay-sb";
+    overlay.onclick = closeSidebar;
+    document.body.appendChild(overlay);
+  }
+
+  if (!document.getElementById("toast-container")) {
+    const toastContainer = document.createElement("div");
+    toastContainer.id = "toast-container";
+    document.body.appendChild(toastContainer);
+  }
+}
+
+function toast(mensagem, tipo = "info") {
+  const container = document.getElementById("toast-container");
+  if (!container) return;
+  const el = document.createElement("div");
+  el.className = `toast toast-${tipo}`;
+  const icone = tipo === "ok" ? "✓" : tipo === "err" ? "✕" : "ℹ";
+  el.innerHTML = `<span class="toast-icon">${icone}</span><span>${mensagem}</span>`;
+  container.appendChild(el);
+  setTimeout(() => {
+    el.classList.add("toast-out");
+    setTimeout(() => el.remove(), 250);
+  }, 3200);
 }
 
 // Postgres devolve colunas NUMERIC como string com casas fixas (ex: "12.0000").
