@@ -57,6 +57,12 @@
   </div>
 
   <div class="card">
+    <div class="row" style="margin-bottom: 14px">
+      <div style="flex: 1; min-width: 220px">
+        <label>Pesquisar item</label>
+        <input type="text" id="input-busca" placeholder="Digite o código ou a descrição...">
+      </div>
+    </div>
     <table>
       <thead>
         <tr>
@@ -151,10 +157,23 @@
     document.getElementById("kpi-soma").textContent = soma.toLocaleString("pt-BR");
   }
 
+  function getFiltroBusca() {
+    return document.getElementById("input-busca").value.trim().toLowerCase();
+  }
+
   function renderTabela() {
     const linhas = linhasAjustadas();
+    const termo = getFiltroBusca();
+    const linhasFiltradas = termo
+      ? linhas.filter(
+          (l) =>
+            l.componente_codigo.toLowerCase().includes(termo) ||
+            l.componente_descricao.toLowerCase().includes(termo)
+        )
+      : linhas;
+
     const tbody = document.getElementById("tbody");
-    tbody.innerHTML = linhas
+    tbody.innerHTML = linhasFiltradas
       .map(
         (l) => `
           <tr class="${l.a_comprar > 0 ? "a-comprar" : "ok"}">
@@ -167,10 +186,18 @@
           </tr>`
       )
       .join("");
-    document.getElementById("vazio").textContent = linhas.length
-      ? ""
-      : "Nenhum componente calculado para este programa.";
-    document.getElementById("vazio").style.display = linhas.length ? "none" : "block";
+
+    const vazioEl = document.getElementById("vazio");
+    if (linhas.length === 0) {
+      vazioEl.textContent = "Nenhum componente calculado para este programa.";
+      vazioEl.style.display = "block";
+    } else if (linhasFiltradas.length === 0) {
+      vazioEl.textContent = "Nenhum item encontrado para essa busca.";
+      vazioEl.style.display = "block";
+    } else {
+      vazioEl.style.display = "none";
+    }
+
     document.getElementById("btn-exportar").disabled = linhas.length === 0;
     renderKpis(linhas);
   }
@@ -180,10 +207,19 @@
   });
 
   document.getElementById("input-meses").addEventListener("input", renderTabela);
+  document.getElementById("input-busca").addEventListener("input", renderTabela);
 
   document.getElementById("btn-exportar").addEventListener("click", () => {
     const fator = getFatorMeses();
-    const dados = linhasAjustadas().map((l) => ({
+    const termo = getFiltroBusca();
+    const base = termo
+      ? linhasAjustadas().filter(
+          (l) =>
+            l.componente_codigo.toLowerCase().includes(termo) ||
+            l.componente_descricao.toLowerCase().includes(termo)
+        )
+      : linhasAjustadas();
+    const dados = base.map((l) => ({
       Componente: l.componente_codigo,
       Descrição: l.componente_descricao,
       UMC: l.umc,
