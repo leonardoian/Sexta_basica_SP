@@ -135,9 +135,26 @@ async function runInit(sql) {
     UNIQUE (programa_id, material_id)
   )`;
 
+  // Acompanhamento de pedido de compra por (programa, componente): se já foi
+  // feito, número do pedido no fornecedor, quantidade pedida e previsão de
+  // chegada. Uma linha por componente dentro de um programa — não é uma
+  // ordem de compra formal, só o controle que o PCP preenche manualmente.
+  await sql`CREATE TABLE IF NOT EXISTS pedidos_compra (
+    id                BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    programa_id       BIGINT NOT NULL REFERENCES programas(id) ON DELETE CASCADE,
+    material_id       BIGINT NOT NULL REFERENCES materiais(id) ON DELETE CASCADE,
+    feito             BOOLEAN NOT NULL DEFAULT false,
+    numero_pedido     TEXT,
+    qtd_pedida        NUMERIC(14,2),
+    previsao_entrega  DATE,
+    atualizado_em     TIMESTAMPTZ NOT NULL DEFAULT now(),
+    UNIQUE (programa_id, material_id)
+  )`;
+
   await sql`CREATE INDEX IF NOT EXISTS idx_bom_itens_bom        ON bom_itens(bom_id)`;
   await sql`CREATE INDEX IF NOT EXISTS idx_bom_itens_componente ON bom_itens(componente_id)`;
   await sql`CREATE INDEX IF NOT EXISTS idx_prog_itens_programa  ON programa_itens(programa_id)`;
+  await sql`CREATE INDEX IF NOT EXISTS idx_pedidos_programa     ON pedidos_compra(programa_id)`;
 
   await sql`CREATE TABLE IF NOT EXISTS usuarios (
     id          BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,

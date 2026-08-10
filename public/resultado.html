@@ -63,6 +63,7 @@
         <input type="text" id="input-busca" placeholder="Digite o código ou a descrição...">
       </div>
     </div>
+    <div style="overflow-x: auto">
     <table>
       <thead>
         <tr>
@@ -72,10 +73,13 @@
           <th>Necessidade total</th>
           <th>Estoque atual</th>
           <th>A comprar</th>
+          <th>Pedido</th>
+          <th></th>
         </tr>
       </thead>
       <tbody id="tbody"></tbody>
     </table>
+    </div>
     <p class="muted" id="vazio">Escolha um programa para calcular.</p>
   </div>
     </div>
@@ -85,6 +89,9 @@
 <script>
   let linhasAtuais = [];
   let programaNome = "";
+  let programaIdAtual = null;
+  let pedidosPorMaterialId = new Map();
+  let editandoPedidoId = null;
 
   async function carregarProgramas() {
     const programas = await api("/api/programas");
@@ -104,16 +111,31 @@
   async function calcular(programaId) {
     if (!programaId) {
       linhasAtuais = [];
+      pedidosPorMaterialId = new Map();
+      programaIdAtual = null;
       renderTabela();
       return;
     }
     const sel = document.getElementById("sel-programa");
     const opt = sel.querySelector(`option[value="${programaId}"]`);
     programaNome = opt ? opt.dataset.nome : programaId;
+    programaIdAtual = programaId;
 
     document.getElementById("vazio").textContent = "Calculando...";
-    linhasAtuais = await api(`/api/calculo?programaId=${programaId}`);
+    const [linhas, pedidos] = await Promise.all([
+      api(`/api/calculo?programaId=${programaId}`),
+      api(`/api/pedidos?programaId=${programaId}`),
+    ]);
+    linhasAtuais = linhas;
+    pedidosPorMaterialId = new Map(pedidos.map((p) => [String(p.material_id), p]));
+    editandoPedidoId = null;
     renderTabela();
+  }
+
+  function formatarData(iso) {
+    if (!iso) return "";
+    const [ano, mes, dia] = String(iso).slice(0, 10).split("-");
+    return `${dia}/${mes}/${ano}`;
   }
 
   function getFatorMeses() {
@@ -161,6 +183,96 @@
     return document.getElementById("input-busca").value.trim().toLowerCase();
   }
 
+  function linhaResultado(l) {
+    const componenteId = String(l.componente_id);
+    const pedido = pedidosPorMaterialId.get(componenteId);
+    const linha = `
+      <tr class="${l.a_comprar > 0 ? "a-comprar" : "ok"}">
+        <td>${l.componente_codigo}</td>
+        <td>${l.componente_descricao}</td>
+        <td>${l.umc}</td>
+        <td>${formatNum(l.necessidade_total)}</td>
+        <td>${formatNum(l.estoque_atual)}</td>
+        <td class="valor-comprar">${formatNum(l.a_comprar)}</td>
+        <td>${
+          pedido && pedido.feito
+            ? `<span style="color: var(--green)">Nº ${pedido.numero_pedido || "-"} · ${formatNum(pedido.qtd_pedida || 0)} · chega ${formatarData(pedido.previsao_entrega) || "sem previsão"}</span>`
+            : `<span class="muted">Sem pedido</span>`
+        }</td>
+        <td><button type="button" class="secondary" onclick="abrirEdicaoPedido('${componenteId}')">${pedido ? "Editar" : "Registrar"} pedido</button></td>
+      </tr>`;
+    return editandoPedidoId === componenteId ? linha + linhaEdicaoPedido(componenteId, pedido) : linha;
+  }
+
+  function linhaEdicaoPedido(componenteId, pedido) {
+    return `
+      <tr>
+        <td colspan="8">
+          <div style="padding: 14px; background: var(--surface-2)">
+            <form class="grid cols-4" onsubmit="salvarPedido(event, '${componenteId}')">
+              <div style="flex-direction: row; align-items: center; gap: 8px">
+                <input type="checkbox" id="pedido-feito-${componenteId}" style="width:auto" ${pedido && pedido.feito ? "checked" : ""}>
+                <label style="margin:0" for="pedido-feito-${componenteId}">Pedido feito</label>
+              </div>
+              <div>
+                <label>Nº do pedido</label>
+                <input type="text" id="pedido-numero-${componenteId}" value="${pedido && pedido.numero_pedido ? pedido.numero_pedido : ""}">
+              </div>
+              <div>
+                <label>Qtd. pedida</label>
+                <input type="number" step="any" id="pedido-qtd-${componenteId}" value="${pedido && pedido.qtd_pedida != null ? formatNum(pedido.qtd_pedida) : ""}">
+              </div>
+              <div>
+                <label>Previsão de chegada</label>
+                <input type="date" id="pedido-data-${componenteId}" value="${pedido && pedido.previsao_entrega ? String(pedido.previsao_entrega).slice(0, 10) : ""}">
+              </div>
+              <div style="grid-column: 1 / -1; display: flex; gap: 8px">
+                <button type="submit">Salvar pedido</button>
+                <button type="button" class="secondary" onclick="cancelarEdicaoPedido()">Cancelar</button>
+              </div>
+            </form>
+          </div>
+        </td>
+      </tr>`;
+  }
+
+  function abrirEdicaoPedido(componenteId) {
+    editandoPedidoId = componenteId;
+    renderTabela();
+  }
+
+  function cancelarEdicaoPedido() {
+    editandoPedidoId = null;
+    renderTabela();
+  }
+
+  async function salvarPedido(event, componenteId) {
+    event.preventDefault();
+    const feito = document.getElementById(`pedido-feito-${componenteId}`).checked;
+    const numeroPedido = document.getElementById(`pedido-numero-${componenteId}`).value.trim();
+    const qtdPedidaRaw = document.getElementById(`pedido-qtd-${componenteId}`).value;
+    const previsaoEntrega = document.getElementById(`pedido-data-${componenteId}`).value || null;
+    try {
+      const pedido = await api("/api/pedidos", {
+        method: "POST",
+        body: JSON.stringify({
+          programaId: programaIdAtual,
+          materialId: componenteId,
+          feito,
+          numeroPedido: numeroPedido || null,
+          qtdPedida: qtdPedidaRaw === "" ? null : Number(qtdPedidaRaw),
+          previsaoEntrega,
+        }),
+      });
+      pedidosPorMaterialId.set(componenteId, pedido);
+      editandoPedidoId = null;
+      renderTabela();
+      toast("Pedido salvo.", "ok");
+    } catch (err) {
+      toast(err.message, "err");
+    }
+  }
+
   function renderTabela() {
     const linhas = linhasAjustadas();
     const termo = getFiltroBusca();
@@ -173,19 +285,7 @@
       : linhas;
 
     const tbody = document.getElementById("tbody");
-    tbody.innerHTML = linhasFiltradas
-      .map(
-        (l) => `
-          <tr class="${l.a_comprar > 0 ? "a-comprar" : "ok"}">
-            <td>${l.componente_codigo}</td>
-            <td>${l.componente_descricao}</td>
-            <td>${l.umc}</td>
-            <td>${formatNum(l.necessidade_total)}</td>
-            <td>${formatNum(l.estoque_atual)}</td>
-            <td class="valor-comprar">${formatNum(l.a_comprar)}</td>
-          </tr>`
-      )
-      .join("");
+    tbody.innerHTML = linhasFiltradas.map(linhaResultado).join("");
 
     const vazioEl = document.getElementById("vazio");
     if (linhas.length === 0) {
@@ -219,15 +319,22 @@
             l.componente_descricao.toLowerCase().includes(termo)
         )
       : linhasAjustadas();
-    const dados = base.map((l) => ({
-      Componente: l.componente_codigo,
-      Descrição: l.componente_descricao,
-      UMC: l.umc,
-      "Meses de estoque": fator,
-      "Necessidade total": l.necessidade_total,
-      "Estoque atual": l.estoque_atual,
-      "A comprar": l.a_comprar,
-    }));
+    const dados = base.map((l) => {
+      const pedido = pedidosPorMaterialId.get(String(l.componente_id));
+      return {
+        Componente: l.componente_codigo,
+        Descrição: l.componente_descricao,
+        UMC: l.umc,
+        "Meses de estoque": fator,
+        "Necessidade total": l.necessidade_total,
+        "Estoque atual": l.estoque_atual,
+        "A comprar": l.a_comprar,
+        "Pedido feito": pedido && pedido.feito ? "Sim" : "Não",
+        "Nº do pedido": (pedido && pedido.numero_pedido) || "",
+        "Qtd. pedida": pedido && pedido.qtd_pedida != null ? pedido.qtd_pedida : "",
+        "Previsão de chegada": pedido ? formatarData(pedido.previsao_entrega) : "",
+      };
+    });
     const ws = XLSX.utils.json_to_sheet(dados);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Necessidade de compra");
