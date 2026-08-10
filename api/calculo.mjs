@@ -47,6 +47,9 @@ export default async function handler(req, res) {
 
   try {
     const rows = await sql(CALCULO_SQL, [programaId]);
+    // primeira vez que esse programa é calculado: sai do estado "rascunho"
+    // sozinho. Não mexe se já estiver "calculado" ou "fechado".
+    await sql`UPDATE programas SET status = 'calculado' WHERE id = ${programaId} AND status = 'rascunho'`;
     return res.status(200).json(rows);
   } catch (e) {
     return res.status(500).json({ error: e.message });
