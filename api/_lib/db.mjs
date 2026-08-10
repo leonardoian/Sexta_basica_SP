@@ -1,4 +1,29 @@
 import { neon } from "@neondatabase/serverless";
+import bcrypt from "bcryptjs";
+import jwt from "jsonwebtoken";
+
+function getJwtSecret() {
+  if (!process.env.JWT_SECRET) throw new Error("JWT_SECRET não configurada");
+  return process.env.JWT_SECRET;
+}
+
+export function signToken(payload) {
+  return jwt.sign(payload, getJwtSecret(), { expiresIn: "12h" });
+}
+
+// Lê o token do header Authorization: Bearer <token>. Retorna o payload
+// (id, login, nome) se válido, ou null (token ausente, expirado ou inválido).
+export function getAuth(req) {
+  const h = req.headers?.authorization || "";
+  if (!h.startsWith("Bearer ")) return null;
+  try {
+    return jwt.verify(h.slice(7), getJwtSecret());
+  } catch {
+    return null;
+  }
+}
+
+export { bcrypt };
 
 export function setCors(res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
@@ -113,4 +138,20 @@ async function runInit(sql) {
   await sql`CREATE INDEX IF NOT EXISTS idx_bom_itens_bom        ON bom_itens(bom_id)`;
   await sql`CREATE INDEX IF NOT EXISTS idx_bom_itens_componente ON bom_itens(componente_id)`;
   await sql`CREATE INDEX IF NOT EXISTS idx_prog_itens_programa  ON programa_itens(programa_id)`;
+
+  await sql`CREATE TABLE IF NOT EXISTS usuarios (
+    id          BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    login       TEXT NOT NULL UNIQUE,
+    senha_hash  TEXT NOT NULL,
+    nome        TEXT NOT NULL,
+    ativo       BOOLEAN NOT NULL DEFAULT true,
+    criado_em   TIMESTAMPTZ NOT NULL DEFAULT now()
+  )`;
+
+  // primeiro acesso: cria um admin padrão se ainda não existir nenhum usuário
+  const existente = await sql`SELECT id FROM usuarios LIMIT 1`;
+  if (existente.length === 0) {
+    const hash = await bcrypt.hash("admin123", 10);
+    await sql`INSERT INTO usuarios (login, senha_hash, nome) VALUES ('admin', ${hash}, 'Administrador')`;
+  }
 }

@@ -1,4 +1,4 @@
-import { setCors, handleOptions, getSQL, initDB } from "./_lib/db.mjs";
+import { setCors, handleOptions, getSQL, initDB, getAuth } from "./_lib/db.mjs";
 
 // Mesma query de db/calculo.sql, embutida aqui (em vez de lida do disco)
 // pra não depender de nenhum passo extra de empacotamento no deploy.
@@ -27,6 +27,7 @@ ORDER BY a_comprar DESC, c.codigo
 export default async function handler(req, res) {
   setCors(res);
   if (handleOptions(req, res)) return;
+  if (!getAuth(req)) return res.status(401).json({ error: "Não autorizado" });
   if (req.method !== "GET") return res.status(405).json({ error: "Método não permitido" });
 
   let sql;

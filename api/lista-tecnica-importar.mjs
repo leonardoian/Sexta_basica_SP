@@ -1,6 +1,6 @@
 export const dynamic = "force-dynamic";
 
-import { setCors, handleOptions, getBody, getSQL, initDB } from "./_lib/db.mjs";
+import { setCors, handleOptions, getBody, getSQL, initDB, getAuth } from "./_lib/db.mjs";
 import { parseListaTecnicaSheet } from "./_lib/import.mjs";
 
 // Importa a lista técnica inteira (todas as referências) de uma vez, a
@@ -12,6 +12,7 @@ import { parseListaTecnicaSheet } from "./_lib/import.mjs";
 export default async function handler(req, res) {
   setCors(res);
   if (handleOptions(req, res)) return;
+  if (!getAuth(req)) return res.status(401).json({ error: "Não autorizado" });
   if (req.method !== "POST") return res.status(405).json({ error: "Método não permitido" });
 
   let sql;

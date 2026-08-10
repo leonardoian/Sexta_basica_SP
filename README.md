@@ -52,11 +52,19 @@ test/
 ## Rodando localmente
 
 ```bash
-cp .env.example .env.local   # cole sua DATABASE_URL do Neon
+cp .env.example .env.local   # cole sua DATABASE_URL do Neon e defina um JWT_SECRET
 npm install
 npm run dev                  # sobe um servidor local em :3000 (api/ + public/)
 npm test                     # roda os testes do núcleo de cálculo
 ```
+
+## Login
+
+O sistema pede usuário/senha (`/login.html`) — todas as rotas de API exigem
+um token válido (JWT, header `Authorization: Bearer ...`). No primeiro
+acesso, se a tabela `usuarios` estiver vazia, um usuário `admin` / `admin123`
+é criado automaticamente — troque a senha assim que entrar (endpoint
+`POST /api/senha`, ou crie novos usuários via `POST /api/usuarios`).
 
 O `npm run dev` usa `scripts/dev-server.mjs`, um servidor Node simples que
 serve `public/` como estático e despacha `/api/*` pros handlers em `api/*.mjs`
@@ -66,7 +74,7 @@ qualquer endpoint.
 
 ## Deploy
 
-Hospedado na Vercel: conecte o repositório, configure `DATABASE_URL` nas
-Environment Variables do projeto, e deploy. Não há passo de build — os
-arquivos em `api/` viram functions automaticamente e `public/` é servido como
-estático.
+Hospedado na Vercel: conecte o repositório, configure `DATABASE_URL` e
+`JWT_SECRET` nas Environment Variables do projeto, e deploy. Não há passo de
+build — os arquivos em `api/` viram functions automaticamente e `public/` é
+servido como estático.

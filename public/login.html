@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Entrar — Planej. Compras</title>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;900&family=Barlow:wght@300;400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/style.css">
+<style>
+  body { display: flex; align-items: center; justify-content: center; min-height: 100vh; }
+  .login-box { width: 100%; max-width: 340px; padding: 32px; }
+  .login-box .brand-mark { font-size: 26px; text-align: center; margin-bottom: 2px; }
+  .login-box .brand-sub { font-size: 26px; text-align: center; margin-bottom: 24px; }
+  .login-box button { width: 100%; margin-top: 8px; }
+</style>
+</head>
+<body>
+  <div class="card login-box">
+    <div class="brand-mark">PLANEJ.</div>
+    <div class="brand-sub">COMPRAS</div>
+    <form id="form-login">
+      <div style="margin-bottom: 12px">
+        <label for="login">Usuário</label>
+        <input id="login" autocomplete="username" required autofocus>
+      </div>
+      <div>
+        <label for="senha">Senha</label>
+        <input id="senha" type="password" autocomplete="current-password" required>
+      </div>
+      <p class="erro" id="erro" style="display:none; margin-top: 10px"></p>
+      <button type="submit" id="btn-entrar">Entrar</button>
+    </form>
+  </div>
+
+<script>
+  // se já tem sessão válida, pula direto pro sistema
+  const auth = JSON.parse(localStorage.getItem("pc_auth") || "null");
+  if (auth && auth.token) {
+    window.location.replace("/index.html");
+  }
+
+  document.getElementById("form-login").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const erroEl = document.getElementById("erro");
+    const btn = document.getElementById("btn-entrar");
+    erroEl.style.display = "none";
+    btn.disabled = true;
+    btn.textContent = "Entrando...";
+    try {
+      const res = await fetch("/api/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          login: document.getElementById("login").value,
+          senha: document.getElementById("senha").value,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Erro ao entrar");
+      localStorage.setItem("pc_auth", JSON.stringify(data));
+      window.location.replace("/index.html");
+    } catch (err) {
+      erroEl.textContent = err.message;
+      erroEl.style.display = "block";
+      btn.disabled = false;
+      btn.textContent = "Entrar";
+    }
+  });
+</script>
+</body>
+</html>

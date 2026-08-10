@@ -1,3 +1,34 @@
+// ---------- autenticação ----------
+function getAuthData() {
+  try {
+    return JSON.parse(localStorage.getItem("pc_auth") || "null");
+  } catch {
+    return null;
+  }
+}
+
+function getToken() {
+  const auth = getAuthData();
+  return auth ? auth.token : null;
+}
+
+function getUsuarioLogado() {
+  const auth = getAuthData();
+  return auth ? auth.usuario : null;
+}
+
+function logout() {
+  localStorage.removeItem("pc_auth");
+  window.location.href = "/login.html";
+}
+
+// roda assim que o script carrega (antes de qualquer chamada de API) —
+// sem token, manda pro login direto, sem esperar a página terminar de montar
+(function guardaSessao() {
+  if (window.location.pathname === "/login.html") return;
+  if (!getToken()) window.location.replace("/login.html");
+})();
+
 const NAV_ITEMS = [
   { href: "/index.html", label: "Início" },
   { href: "/referencias.html", label: "Nova referência" },
@@ -7,6 +38,7 @@ const NAV_ITEMS = [
   { href: "/programas.html", label: "Programa" },
   { href: "/resultado.html", label: "Resultado" },
   { href: "/importar.html", label: "Importar Programa" },
+  { href: "/usuarios.html", label: "Usuários" },
 ];
 
 function renderShell() {
@@ -25,7 +57,8 @@ function renderShell() {
         `<a class="ni ${atual === item.href ? "active" : ""}" href="${item.href}"${item.newTab ? ' target="_blank"' : ""}>${item.label}</a>`
     ).join("")}
     <div class="sfoot">
-      <span class="muted">InBetta — PCP</span>
+      <div class="muted" style="margin-bottom: 8px">${getUsuarioLogado()?.nome || ""}</div>
+      <button type="button" class="secondary" onclick="logout()" style="width:100%">Sair</button>
     </div>
   `;
 
@@ -54,10 +87,19 @@ function formatNum(v) {
 }
 
 async function api(path, opts = {}) {
+  const token = getToken();
   const res = await fetch(path, {
     ...opts,
-    headers: { "Content-Type": "application/json", ...(opts.headers || {}) },
+    headers: {
+      "Content-Type": "application/json",
+      ...(token ? { Authorization: "Bearer " + token } : {}),
+      ...(opts.headers || {}),
+    },
   });
+  if (res.status === 401) {
+    logout();
+    throw new Error("Sessão expirada. Faça login novamente.");
+  }
   const data = await res.json().catch(() => null);
   if (!res.ok) {
     throw new Error((data && data.error) || `Erro na requisição (${res.status})`);

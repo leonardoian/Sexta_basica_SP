@@ -1,4 +1,4 @@
-import { setCors, handleOptions, getBody, getSQL, initDB } from "./_lib/db.mjs";
+import { setCors, handleOptions, getBody, getSQL, initDB, getAuth } from "./_lib/db.mjs";
 
 // Cadastra a referência (acabado) e a lista técnica inteira em uma única
 // chamada: cria/atualiza o material acabado, cria a BOM e insere cada item,
@@ -6,6 +6,7 @@ import { setCors, handleOptions, getBody, getSQL, initDB } from "./_lib/db.mjs";
 export default async function handler(req, res) {
   setCors(res);
   if (handleOptions(req, res)) return;
+  if (!getAuth(req)) return res.status(401).json({ error: "Não autorizado" });
   if (req.method !== "POST") return res.status(405).json({ error: "Método não permitido" });
 
   let sql;

@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Usuários — Planej. Compras</title>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;900&family=Barlow:wght@300;400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<div class="app">
+  <nav class="sidebar" id="sidebar"></nav>
+  <div class="main">
+    <div class="topbar">
+      <div class="topbar-title" id="topbar-title">Usuários</div>
+      <div class="topbar-date" id="topbar-date"></div>
+    </div>
+    <div class="content">
+  <div class="card">
+    <h2>Trocar minha senha</h2>
+    <form id="form-senha" class="grid cols-3">
+      <div>
+        <label for="senha-atual">Senha atual</label>
+        <input id="senha-atual" type="password" required>
+      </div>
+      <div>
+        <label for="senha-nova">Nova senha</label>
+        <input id="senha-nova" type="password" required minlength="6">
+      </div>
+      <div style="display:flex; align-items:flex-end">
+        <button type="submit" id="btn-senha">Salvar senha</button>
+      </div>
+    </form>
+    <p class="erro" id="senha-erro" style="display:none; margin-top: 10px"></p>
+    <p class="muted" id="senha-ok" style="display:none; margin-top: 10px; color: var(--green)">Senha alterada.</p>
+  </div>
+
+  <div class="card">
+    <h2>Novo usuário</h2>
+    <form id="form-usuario" class="grid cols-3">
+      <div>
+        <label for="novo-login">Login</label>
+        <input id="novo-login" required>
+      </div>
+      <div>
+        <label for="novo-nome">Nome</label>
+        <input id="novo-nome" required>
+      </div>
+      <div>
+        <label for="novo-senha">Senha</label>
+        <input id="novo-senha" type="password" required minlength="6">
+      </div>
+      <div style="grid-column: 1 / -1">
+        <p class="erro" id="usuario-erro" style="display:none"></p>
+        <button type="submit" id="btn-usuario">Adicionar</button>
+      </div>
+    </form>
+  </div>
+
+  <div class="card">
+    <h2>Usuários cadastrados</h2>
+    <table>
+      <thead>
+        <tr><th>Login</th><th>Nome</th><th>Status</th><th></th></tr>
+      </thead>
+      <tbody id="tbody"></tbody>
+    </table>
+  </div>
+    </div>
+  </div>
+</div>
+<script src="/app.js"></script>
+<script>
+  async function carregar() {
+    const usuarios = await api("/api/usuarios");
+    document.getElementById("tbody").innerHTML = usuarios
+      .map(
+        (u) => `
+        <tr>
+          <td>${u.login}</td>
+          <td>${u.nome}</td>
+          <td>${u.ativo ? "<span class='muted'>ativo</span>" : "<span class='erro'>desativado</span>"}</td>
+          <td>${u.ativo ? `<button class="ghost" onclick="desativar(${u.id})">Desativar</button>` : ""}</td>
+        </tr>`
+      )
+      .join("");
+  }
+
+  async function desativar(id) {
+    if (!confirm("Desativar este usuário? Ele não vai mais conseguir entrar.")) return;
+    await api("/api/usuarios", { method: "DELETE", body: JSON.stringify({ id }) });
+    await carregar();
+  }
+
+  document.getElementById("form-senha").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const erroEl = document.getElementById("senha-erro");
+    const okEl = document.getElementById("senha-ok");
+    const btn = document.getElementById("btn-senha");
+    erroEl.style.display = "none";
+    okEl.style.display = "none";
+    btn.disabled = true;
+    try {
+      await api("/api/senha", {
+        method: "POST",
+        body: JSON.stringify({
+          senhaAtual: document.getElementById("senha-atual").value,
+          senhaNova: document.getElementById("senha-nova").value,
+        }),
+      });
+      document.getElementById("form-senha").reset();
+      okEl.style.display = "block";
+    } catch (err) {
+      erroEl.textContent = err.message;
+      erroEl.style.display = "block";
+    } finally {
+      btn.disabled = false;
+    }
+  });
+
+  document.getElementById("form-usuario").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const erroEl = document.getElementById("usuario-erro");
+    const btn = document.getElementById("btn-usuario");
+    erroEl.style.display = "none";
+    btn.disabled = true;
+    try {
+      await api("/api/usuarios", {
+        method: "POST",
+        body: JSON.stringify({
+          login: document.getElementById("novo-login").value,
+          nome: document.getElementById("novo-nome").value,
+          senha: document.getElementById("novo-senha").value,
+        }),
+      });
+      document.getElementById("form-usuario").reset();
+      await carregar();
+    } catch (err) {
+      erroEl.textContent = err.message;
+      erroEl.style.display = "block";
+    } finally {
+      btn.disabled = false;
+    }
+  });
+
+  carregar();
+</script>
+</body>
+</html>
