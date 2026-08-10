@@ -46,6 +46,11 @@
 
     <p class="erro" id="erro" style="display:none"></p>
 
+    <div style="margin-bottom: 16px; max-width: 320px">
+      <label>Pesquisar componente</label>
+      <input type="text" id="input-busca" placeholder="Código ou descrição...">
+    </div>
+
     <table>
       <thead>
         <tr><th>Componente</th><th>Descrição</th><th>UMC</th><th>Peças por UMC</th><th></th></tr>
@@ -104,8 +109,25 @@
     await renderItens();
   }
 
+  let itensAtuais = [];
+
+  function getBusca() {
+    return document.getElementById("input-busca").value.trim().toLowerCase();
+  }
+
   async function renderItens() {
-    const itens = await api(`/api/boms?recurso=itens&bomId=${bomId}`);
+    itensAtuais = await api(`/api/boms?recurso=itens&bomId=${bomId}`);
+    renderTabelaItens();
+  }
+
+  function renderTabelaItens() {
+    const termo = getBusca();
+    const itens = itensAtuais.filter(
+      (it) =>
+        !termo ||
+        it.componente_codigo.toLowerCase().includes(termo) ||
+        it.componente_descricao.toLowerCase().includes(termo)
+    );
     document.getElementById("tbody").innerHTML = itens
       .map(
         (it) => `
@@ -151,6 +173,8 @@
       erroEl.style.display = "block";
     }
   });
+
+  document.getElementById("input-busca").addEventListener("input", renderTabelaItens);
 
   document.getElementById("input-importar").addEventListener("change", async (e) => {
     const file = e.target.files[0];

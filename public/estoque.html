@@ -33,6 +33,11 @@
       <button type="button" class="secondary" id="btn-modelo">⬇ Baixar modelo de planilha</button>
     </div>
 
+    <div style="margin-bottom: 16px; max-width: 340px">
+      <label>Pesquisar</label>
+      <input type="text" id="input-busca" placeholder="Código ou descrição...">
+    </div>
+
     <table>
       <thead>
         <tr><th>Código</th><th>Descrição</th><th>UMC</th><th>Qtd. atual</th><th></th></tr>
@@ -57,8 +62,22 @@
     XLSX.writeFile(wb, "modelo-estoque-planej-compras.xlsx");
   });
 
+  let linhasAtuais = [];
+
+  function getBusca() {
+    return document.getElementById("input-busca").value.trim().toLowerCase();
+  }
+
   async function carregar() {
-    const linhas = await api("/api/estoque");
+    linhasAtuais = await api("/api/estoque");
+    renderTabela();
+  }
+
+  function renderTabela() {
+    const termo = getBusca();
+    const linhas = linhasAtuais.filter(
+      (l) => !termo || l.codigo.toLowerCase().includes(termo) || l.descricao.toLowerCase().includes(termo)
+    );
     document.getElementById("tbody").innerHTML = linhas
       .map(
         (l) => `
@@ -90,6 +109,8 @@
       btn.textContent = "Salvar";
     }
   }
+
+  document.getElementById("input-busca").addEventListener("input", renderTabela);
 
   document.getElementById("input-importar").addEventListener("change", async (e) => {
     const file = e.target.files[0];

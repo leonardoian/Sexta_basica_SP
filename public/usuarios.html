@@ -59,6 +59,10 @@
 
   <div class="card">
     <h2>Usuários cadastrados</h2>
+    <div style="margin-bottom: 16px; max-width: 340px">
+      <label>Pesquisar</label>
+      <input type="text" id="input-busca" placeholder="Login ou nome...">
+    </div>
     <table>
       <thead>
         <tr><th>Login</th><th>Nome</th><th>Status</th><th></th></tr>
@@ -71,8 +75,22 @@
 </div>
 <script src="/app.js"></script>
 <script>
+  let usuariosAtuais = [];
+
+  function getBusca() {
+    return document.getElementById("input-busca").value.trim().toLowerCase();
+  }
+
   async function carregar() {
-    const usuarios = await api("/api/usuarios");
+    usuariosAtuais = await api("/api/usuarios");
+    renderTabela();
+  }
+
+  function renderTabela() {
+    const termo = getBusca();
+    const usuarios = usuariosAtuais.filter(
+      (u) => !termo || u.login.toLowerCase().includes(termo) || u.nome.toLowerCase().includes(termo)
+    );
     document.getElementById("tbody").innerHTML = usuarios
       .map(
         (u) => `
@@ -85,6 +103,8 @@
       )
       .join("");
   }
+
+  document.getElementById("input-busca").addEventListener("input", renderTabela);
 
   async function desativar(id) {
     if (!confirm("Desativar este usuário? Ele não vai mais conseguir entrar.")) return;

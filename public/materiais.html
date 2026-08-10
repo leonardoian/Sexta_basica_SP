@@ -46,6 +46,10 @@
   </div>
 
   <div class="card">
+    <div style="margin-bottom: 16px; max-width: 340px">
+      <label>Pesquisar</label>
+      <input type="text" id="input-busca" placeholder="Código ou descrição...">
+    </div>
     <div class="tabs">
       <button type="button" class="tab-btn active" data-pane="acabados">Acabados <span id="count-acabados"></span></button>
       <button type="button" class="tab-btn" data-pane="componentes">Componentes <span id="count-componentes"></span></button>
@@ -181,8 +185,15 @@
     renderListas();
   }
 
+  function getBusca() {
+    return document.getElementById("input-busca").value.trim().toLowerCase();
+  }
+
   function renderListas() {
-    const materiais = [...materiaisPorId.values()];
+    const termo = getBusca();
+    const materiais = [...materiaisPorId.values()].filter(
+      (m) => !termo || m.codigo.toLowerCase().includes(termo) || m.descricao.toLowerCase().includes(termo)
+    );
     const acabados = materiais.filter((m) => m.tipo === "acabado");
     const componentes = materiais.filter((m) => m.tipo === "componente");
 
@@ -207,6 +218,8 @@
       placeholder: "Digite o código ou descrição do componente...",
     });
   }
+
+  document.getElementById("input-busca").addEventListener("input", renderListas);
 
   document.querySelectorAll(".tab-btn").forEach((btn) =>
     btn.addEventListener("click", () => {
