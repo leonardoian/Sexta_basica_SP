@@ -98,7 +98,7 @@
     msgEl.textContent = "Importando...";
     try {
       const contentBase64 = await fileParaBase64(file);
-      const data = await api("/api/estoque-importar", {
+      const data = await api("/api/estoque?recurso=importar-simples", {
         method: "POST",
         body: JSON.stringify({ contentBase64 }),
       });

@@ -506,7 +506,7 @@ $("send").addEventListener("click", async () => {
   if (modoRefs === "sap") {
     $("status").textContent = "Enviando lista técnica (pode levar alguns segundos)...";
     try {
-      const r = await post("lista-tecnica-importar", { contentBase64: fileBase64 });
+      const r = await post("boms?recurso=lista-tecnica", { contentBase64: fileBase64 });
       resumo.push(`${r.acabados} referência(s) e ${r.componentes} componente(s), ${r.itensGravados} itens de lista técnica`);
       $("barfill").style.width = "40%";
     } catch (e) {
@@ -553,7 +553,7 @@ $("send").addEventListener("click", async () => {
           try {
             const materialId = porCodigo.get(p.cod);
             if (!materialId) throw new Error("referência não encontrada — importe a lista técnica antes ou cadastre-a");
-            await post("programa-itens", { programaId: programa.id, materialId, qtdProduzir: p.qtd });
+            await post("programas?recurso=itens", { programaId: programa.id, materialId, qtdProduzir: p.qtd });
           } catch (e) {
             fails.push("prog " + p.cod + ": " + e.message);
           }
@@ -572,7 +572,7 @@ $("send").addEventListener("click", async () => {
   if (DATA.estoque.length) {
     $("status").textContent = "Enviando estoque por depósito...";
     try {
-      const r = await post("estoque-depositos-importar", { contentBase64: fileBase64 });
+      const r = await post("estoque?recurso=importar-depositos", { contentBase64: fileBase64 });
       resumo.push(`${r.materiaisAtualizados} material(is) de estoque (${r.depositos.join(", ")})`);
       $("barfill").style.width = "100%";
     } catch (e) {

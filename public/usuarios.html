@@ -101,7 +101,7 @@
     okEl.style.display = "none";
     btn.disabled = true;
     try {
-      await api("/api/senha", {
+      await api("/api/usuarios?recurso=senha", {
         method: "POST",
         body: JSON.stringify({
           senhaAtual: document.getElementById("senha-atual").value,

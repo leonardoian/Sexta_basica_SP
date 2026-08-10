@@ -73,7 +73,7 @@
     if (!id) return;
     document.getElementById("link-resultado").href = `/resultado.html?programaId=${id}`;
     editandoItemId = null;
-    itensAtuais = await api(`/api/programa-itens?programaId=${id}`);
+    itensAtuais = await api(`/api/programas?recurso=itens&programaId=${id}`);
     renderItens();
   }
 
@@ -123,7 +123,7 @@
     const linha = document.querySelector(`tr[data-item-id="${itemId}"]`);
     const qtdProduzir = Number(linha.querySelector(".input-qtd-edit").value);
     try {
-      await api("/api/programa-itens", {
+      await api("/api/programas?recurso=itens", {
         method: "POST",
         body: JSON.stringify({ programaId, materialId, qtdProduzir }),
       });
@@ -135,7 +135,7 @@
   }
 
   async function removerItem(itemId) {
-    await api("/api/programa-itens", { method: "DELETE", body: JSON.stringify({ itemId }) });
+    await api("/api/programas?recurso=itens", { method: "DELETE", body: JSON.stringify({ itemId }) });
     await carregarItens(programaId);
   }
 

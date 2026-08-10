@@ -250,13 +250,13 @@
 
   async function carregarItensBom() {
     if (!editando || !editando.bomId) return;
-    itensBomEditando = await api(`/api/bom-itens?bomId=${editando.bomId}`);
+    itensBomEditando = await api(`/api/boms?recurso=itens&bomId=${editando.bomId}`);
     carregandoItensBom = false;
     renderListas();
   }
 
   async function removerItemBom(itemId) {
-    await api("/api/bom-itens", { method: "DELETE", body: JSON.stringify({ itemId }) });
+    await api("/api/boms?recurso=itens", { method: "DELETE", body: JSON.stringify({ itemId }) });
     await carregarItensBom();
   }
 
@@ -300,7 +300,7 @@
       return;
     }
     try {
-      await api("/api/bom-itens", {
+      await api("/api/boms?recurso=itens", {
         method: "POST",
         body: JSON.stringify({
           bomId: editando.bomId,

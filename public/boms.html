@@ -105,7 +105,7 @@
   }
 
   async function renderItens() {
-    const itens = await api(`/api/bom-itens?bomId=${bomId}`);
+    const itens = await api(`/api/boms?recurso=itens&bomId=${bomId}`);
     document.getElementById("tbody").innerHTML = itens
       .map(
         (it) => `
@@ -122,7 +122,7 @@
   }
 
   async function removerItem(itemId) {
-    await api("/api/bom-itens", { method: "DELETE", body: JSON.stringify({ itemId }) });
+    await api("/api/boms?recurso=itens", { method: "DELETE", body: JSON.stringify({ itemId }) });
     await renderItens();
   }
 
@@ -136,7 +136,7 @@
       return;
     }
     try {
-      await api("/api/bom-itens", {
+      await api("/api/boms?recurso=itens", {
         method: "POST",
         body: JSON.stringify({
           bomId,
@@ -159,7 +159,7 @@
     msgEl.textContent = "Importando...";
     try {
       const contentBase64 = await fileParaBase64(file);
-      const data = await api("/api/bom-importar", {
+      const data = await api("/api/boms?recurso=importar", {
         method: "POST",
         body: JSON.stringify({ materialCodigo: acabadoAtual, contentBase64 }),
       });

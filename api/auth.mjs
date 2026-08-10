@@ -1,10 +1,20 @@
 export const dynamic = "force-dynamic";
 
-import { setCors, handleOptions, getBody, getSQL, initDB, bcrypt, signToken } from "./_lib/db.mjs";
+import { setCors, handleOptions, getBody, getSQL, initDB, getAuth, bcrypt, signToken } from "./_lib/db.mjs";
 
+// Junta login (POST) e "quem sou eu" (GET) num arquivo só — eram 2 arquivos
+// separados — só pra ficar dentro do limite de 12 Serverless Functions do
+// plano Hobby da Vercel.
 export default async function handler(req, res) {
   setCors(res);
   if (handleOptions(req, res)) return;
+
+  if (req.method === "GET") {
+    const u = getAuth(req);
+    if (!u) return res.status(401).json({ error: "Não autorizado" });
+    return res.status(200).json({ usuario: { id: u.id, login: u.login, nome: u.nome } });
+  }
+
   if (req.method !== "POST") return res.status(405).json({ error: "Método não permitido" });
 
   let sql;
