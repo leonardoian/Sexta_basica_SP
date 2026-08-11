@@ -58,7 +58,7 @@ function renderShell() {
 
   sidebar.innerHTML = `
     <div class="slogo">
-      <svg width="120" height="48" viewBox="0 0 140 56" role="img" aria-label="SP Planej. Compras">
+      <svg width="170" height="68" viewBox="0 0 140 56" role="img" aria-label="SP Planej. Compras">
         <rect x="0" y="4" width="40" height="40" fill="var(--accent)"></rect>
         <text x="20" y="32" font-family="'Barlow Condensed',sans-serif" font-weight="900" font-size="18" fill="#fff" text-anchor="middle">SP</text>
         <text x="48" y="22" font-family="'Barlow Condensed',sans-serif" font-weight="700" font-size="13" fill="var(--text)">PLANEJ.</text>
