@@ -112,10 +112,7 @@
   }
 
   let itensAtuais = [];
-
-  function getBusca() {
-    return document.getElementById("input-busca").value.trim().toLowerCase();
-  }
+  const filtroBusca = criarFiltroBusca("input-busca", ["componente_codigo", "componente_descricao"]);
 
   async function renderItens() {
     itensAtuais = await api(`/api/boms?recurso=itens&bomId=${bomId}`);
@@ -123,13 +120,7 @@
   }
 
   function renderTabelaItens() {
-    const termo = getBusca();
-    const itens = itensAtuais.filter(
-      (it) =>
-        !termo ||
-        it.componente_codigo.toLowerCase().includes(termo) ||
-        it.componente_descricao.toLowerCase().includes(termo)
-    );
+    const itens = filtroBusca.aplicar(itensAtuais);
     document.getElementById("tbody").innerHTML = itens
       .map(
         (it) => `
@@ -176,7 +167,7 @@
     }
   });
 
-  document.getElementById("input-busca").addEventListener("input", renderTabelaItens);
+  filtroBusca.aoDigitar(renderTabelaItens);
 
   document.getElementById("input-importar").addEventListener("change", async (e) => {
     const file = e.target.files[0];

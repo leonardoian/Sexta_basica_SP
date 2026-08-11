@@ -77,10 +77,7 @@
 <script src="/app.js"></script>
 <script>
   let usuariosAtuais = [];
-
-  function getBusca() {
-    return document.getElementById("input-busca").value.trim().toLowerCase();
-  }
+  const filtroBusca = criarFiltroBusca("input-busca", ["login", "nome"]);
 
   async function carregar() {
     usuariosAtuais = await api("/api/usuarios");
@@ -88,10 +85,7 @@
   }
 
   function renderTabela() {
-    const termo = getBusca();
-    const usuarios = usuariosAtuais.filter(
-      (u) => !termo || u.login.toLowerCase().includes(termo) || u.nome.toLowerCase().includes(termo)
-    );
+    const usuarios = filtroBusca.aplicar(usuariosAtuais);
     document.getElementById("tbody").innerHTML = usuarios
       .map(
         (u) => `
@@ -105,7 +99,7 @@
       .join("");
   }
 
-  document.getElementById("input-busca").addEventListener("input", renderTabela);
+  filtroBusca.aoDigitar(renderTabela);
 
   async function desativar(id) {
     if (!confirm("Desativar este usuário? Ele não vai mais conseguir entrar.")) return;

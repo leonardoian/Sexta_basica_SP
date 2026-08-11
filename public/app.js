@@ -135,6 +135,25 @@ function toast(mensagem, tipo = "info") {
   }, 3200);
 }
 
+// Busca por texto num input#id, filtrando uma lista em memória por um ou
+// mais campos (contém, sem diferenciar maiúsculas/minúsculas) — sem chamar
+// a API de novo a cada tecla. Repetido igual em várias telas antes disso.
+function criarFiltroBusca(inputId, campos) {
+  const input = document.getElementById(inputId);
+  return {
+    aplicar(lista) {
+      const termo = input.value.trim().toLowerCase();
+      if (!termo) return lista;
+      return lista.filter((item) =>
+        campos.some((campo) => String(item[campo] ?? "").toLowerCase().includes(termo))
+      );
+    },
+    aoDigitar(callback) {
+      input.addEventListener("input", callback);
+    },
+  };
+}
+
 // Postgres devolve colunas NUMERIC como string com casas fixas (ex: "12.0000").
 // Isso converte pra número e formata sem zeros à direita (ex: "12").
 function formatNum(v) {

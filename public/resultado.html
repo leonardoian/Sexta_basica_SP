@@ -196,9 +196,7 @@
     document.getElementById("kpi-soma").textContent = soma.toLocaleString("pt-BR");
   }
 
-  function getFiltroBusca() {
-    return document.getElementById("input-busca").value.trim().toLowerCase();
-  }
+  const filtroBusca = criarFiltroBusca("input-busca", ["componente_codigo", "componente_descricao"]);
 
   function getFiltroPedido() {
     return document.getElementById("sel-filtro-pedido").value;
@@ -217,14 +215,8 @@
   // aplica busca por texto + filtro de pedido sobre as linhas já ajustadas
   // pelo fator de meses de estoque — usado tanto na tabela quanto no export.
   function linhasVisiveis() {
-    const termo = getFiltroBusca();
     const filtroPedido = getFiltroPedido();
-    return linhasAjustadas().filter((l) => {
-      const passaBusca =
-        !termo ||
-        l.componente_codigo.toLowerCase().includes(termo) ||
-        l.componente_descricao.toLowerCase().includes(termo);
-      if (!passaBusca) return false;
+    return filtroBusca.aplicar(linhasAjustadas()).filter((l) => {
       const pedidos = pedidosPorMaterialId.get(String(l.componente_id)) || [];
       return passaFiltroPedido(pedidos, filtroPedido);
     });
@@ -468,7 +460,7 @@
   });
 
   document.getElementById("input-meses").addEventListener("input", renderTabela);
-  document.getElementById("input-busca").addEventListener("input", renderTabela);
+  filtroBusca.aoDigitar(renderTabela);
   document.getElementById("sel-filtro-pedido").addEventListener("change", renderTabela);
 
   document.getElementById("btn-exportar").addEventListener("click", () => {

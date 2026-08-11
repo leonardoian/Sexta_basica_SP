@@ -186,15 +186,10 @@
     renderListas();
   }
 
-  function getBusca() {
-    return document.getElementById("input-busca").value.trim().toLowerCase();
-  }
+  const filtroBusca = criarFiltroBusca("input-busca", ["codigo", "descricao"]);
 
   function renderListas() {
-    const termo = getBusca();
-    const materiais = [...materiaisPorId.values()].filter(
-      (m) => !termo || m.codigo.toLowerCase().includes(termo) || m.descricao.toLowerCase().includes(termo)
-    );
+    const materiais = filtroBusca.aplicar([...materiaisPorId.values()]);
     const acabados = materiais.filter((m) => m.tipo === "acabado");
     const componentes = materiais.filter((m) => m.tipo === "componente");
 
@@ -220,7 +215,7 @@
     });
   }
 
-  document.getElementById("input-busca").addEventListener("input", renderListas);
+  filtroBusca.aoDigitar(renderListas);
 
   document.querySelectorAll(".tab-btn").forEach((btn) =>
     btn.addEventListener("click", () => {

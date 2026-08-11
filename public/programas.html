@@ -109,18 +109,10 @@
       </tr>`;
   }
 
-  function getBusca() {
-    return document.getElementById("input-busca").value.trim().toLowerCase();
-  }
+  const filtroBusca = criarFiltroBusca("input-busca", ["material_codigo", "material_descricao"]);
 
   function renderItens() {
-    const termo = getBusca();
-    const itens = itensAtuais.filter(
-      (it) =>
-        !termo ||
-        it.material_codigo.toLowerCase().includes(termo) ||
-        it.material_descricao.toLowerCase().includes(termo)
-    );
+    const itens = filtroBusca.aplicar(itensAtuais);
     document.getElementById("tbody").innerHTML = itens.map(linhaItem).join("");
     document.getElementById("vazio").style.display = itens.length ? "none" : "block";
   }
@@ -157,7 +149,7 @@
     await carregarItens(programaId);
   }
 
-  document.getElementById("input-busca").addEventListener("input", renderItens);
+  filtroBusca.aoDigitar(renderItens);
 
   document.getElementById("sel-programa").addEventListener("change", (e) => {
     programaId = e.target.value;

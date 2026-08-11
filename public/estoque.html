@@ -57,11 +57,7 @@
 <script src="/app.js"></script>
 <script>
   document.getElementById("btn-exportar").addEventListener("click", () => {
-    const termo = getBusca();
-    const linhas = linhasAtuais.filter(
-      (l) => !termo || l.codigo.toLowerCase().includes(termo) || l.descricao.toLowerCase().includes(termo)
-    );
-    const dados = linhas.map((l) => ({
+    const dados = filtroBusca.aplicar(linhasAtuais).map((l) => ({
       MATERIAL: l.codigo,
       DESCRICAO: l.descricao,
       UMC: l.umc,
@@ -85,10 +81,7 @@
   });
 
   let linhasAtuais = [];
-
-  function getBusca() {
-    return document.getElementById("input-busca").value.trim().toLowerCase();
-  }
+  const filtroBusca = criarFiltroBusca("input-busca", ["codigo", "descricao"]);
 
   async function carregar() {
     linhasAtuais = await api("/api/estoque");
@@ -96,10 +89,7 @@
   }
 
   function renderTabela() {
-    const termo = getBusca();
-    const linhas = linhasAtuais.filter(
-      (l) => !termo || l.codigo.toLowerCase().includes(termo) || l.descricao.toLowerCase().includes(termo)
-    );
+    const linhas = filtroBusca.aplicar(linhasAtuais);
     document.getElementById("tbody").innerHTML = linhas
       .map(
         (l) => `
@@ -132,7 +122,7 @@
     }
   }
 
-  document.getElementById("input-busca").addEventListener("input", renderTabela);
+  filtroBusca.aoDigitar(renderTabela);
 
   document.getElementById("input-importar").addEventListener("change", async (e) => {
     const file = e.target.files[0];
