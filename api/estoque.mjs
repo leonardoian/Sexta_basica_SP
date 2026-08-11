@@ -36,34 +36,51 @@ export default async function handler(req, res) {
       const buffer = Buffer.from(contentBase64, "base64");
       const linhas = parseEstoqueSheet(buffer);
 
-      let atualizados = 0;
-      let criados = 0;
+      // dedup por código, mantendo a última ocorrência (igual ao
+      // comportamento anterior linha-a-linha, onde a última lida "ganhava")
+      const porCodigo = new Map();
+      for (const l of linhas) porCodigo.set(l.codigo, l);
+      const unicas = [...porCodigo.values()];
+      const codigos = unicas.map((l) => l.codigo);
 
-      for (const linha of linhas) {
-        const materialRows = await sql`SELECT id FROM materiais WHERE codigo = ${linha.codigo}`;
-        let materialId;
+      const existentesRows = await sql(`SELECT codigo FROM materiais WHERE codigo = ANY($1::text[])`, [codigos]);
+      const existentesSet = new Set(existentesRows.map((r) => r.codigo));
+      const criados = codigos.filter((c) => !existentesSet.has(c)).length;
 
-        if (materialRows.length === 0) {
-          const novoRows = await sql`
-            INSERT INTO materiais (codigo, descricao, umc, tipo)
-            VALUES (${linha.codigo}, ${linha.descricao || linha.codigo}, ${linha.umc || "PC"}, 'componente')
-            RETURNING id
-          `;
-          materialId = novoRows[0].id;
-          criados++;
-        } else {
-          materialId = materialRows[0].id;
+      // upsert em lote (1 viagem ao banco em vez de 1 por linha) — planilhas
+      // grandes (milhares de linhas) estouravam o tempo limite da function
+      // fazendo select+insert+insert sequencial pra cada item.
+      await sql(
+        `INSERT INTO materiais (codigo, descricao, umc, tipo)
+         SELECT * FROM unnest($1::text[], $2::text[], $3::text[], $4::text[])
+         ON CONFLICT (codigo) DO NOTHING`,
+        [codigos, unicas.map((l) => l.descricao || l.codigo), unicas.map((l) => l.umc || "PC"), codigos.map(() => "componente")]
+      );
+
+      const materiaisRows = await sql(`SELECT id, codigo FROM materiais WHERE codigo = ANY($1::text[])`, [codigos]);
+      const idPorCodigo = new Map(materiaisRows.map((m) => [m.codigo, m.id]));
+
+      const materialIds = [];
+      const qtds = [];
+      for (const l of unicas) {
+        const id = idPorCodigo.get(l.codigo);
+        if (id) {
+          materialIds.push(id);
+          qtds.push(l.estoque);
         }
-
-        await sql`
-          INSERT INTO estoque (material_id, qtd_atual, atualizado_em)
-          VALUES (${materialId}, ${linha.estoque}, now())
-          ON CONFLICT (material_id) DO UPDATE SET qtd_atual = ${linha.estoque}, atualizado_em = now()
-        `;
-        atualizados++;
       }
 
-      return res.status(200).json({ total: linhas.length, atualizados, criados });
+      if (materialIds.length > 0) {
+        await sql(
+          `INSERT INTO estoque (material_id, qtd_atual, atualizado_em)
+           SELECT m, q, now()
+           FROM unnest($1::bigint[], $2::numeric[]) AS t(m, q)
+           ON CONFLICT (material_id) DO UPDATE SET qtd_atual = EXCLUDED.qtd_atual, atualizado_em = now()`,
+          [materialIds, qtds]
+        );
+      }
+
+      return res.status(200).json({ total: linhas.length, atualizados: materialIds.length, criados });
     } catch (e) {
       return res.status(500).json({ error: e.message });
     }
