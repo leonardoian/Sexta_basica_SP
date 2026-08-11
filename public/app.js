@@ -139,7 +139,11 @@ function toast(mensagem, tipo = "info") {
 // Isso converte pra número e formata sem zeros à direita (ex: "12").
 function formatNum(v) {
   const n = Number(v);
-  return Number.isFinite(n) ? n.toString() : v;
+  if (!Number.isFinite(n)) return v;
+  // arredonda pra 2 casas antes de formatar — evita ruído de ponto
+  // flutuante tipo 256.6300000000001 numa subtração comum
+  const arredondado = Math.round(n * 100) / 100;
+  return Number.isInteger(arredondado) ? arredondado.toString() : arredondado.toFixed(2);
 }
 
 async function api(path, opts = {}) {
