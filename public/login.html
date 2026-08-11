@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Entrar — Planej. Compras</title>
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;900&family=Barlow:wght@300;400;500;600&display=swap" rel="stylesheet">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <link rel="stylesheet" href="/style.css">
 <style>
   body {
@@ -14,16 +15,19 @@
       repeating-linear-gradient(90deg, transparent, transparent 39px, var(--border) 40px);
   }
   .login-box { width: 100%; max-width: 360px; padding: 40px 36px; border-top: 3px solid var(--accent); }
-  .login-box .brand-mark { font: 900 34px/1 var(--fh); text-align: center; margin-bottom: 2px; }
-  .login-box .brand-sub { font: 900 34px/1 var(--fh); text-align: center; margin-bottom: 30px; }
+  .login-box .brand-logo { display: block; margin: 0 auto 30px; }
   .login-box label { text-align: left; }
   .login-box button { width: 100%; margin-top: 10px; padding: 13px; font-size: 15px; }
 </style>
 </head>
 <body>
   <div class="card login-box">
-    <div class="brand-mark">PLANEJ.</div>
-    <div class="brand-sub">COMPRAS</div>
+    <svg class="brand-logo" width="150" height="60" viewBox="0 0 150 60" role="img" aria-label="SP Planej. Compras">
+      <rect x="0" y="6" width="50" height="50" fill="var(--accent)"></rect>
+      <text x="25" y="40" font-family="'Barlow Condensed',sans-serif" font-weight="900" font-size="24" fill="#fff" text-anchor="middle">SP</text>
+      <text x="60" y="30" font-family="'Barlow Condensed',sans-serif" font-weight="700" font-size="16" fill="var(--text)">PLANEJ.</text>
+      <text x="60" y="50" font-family="'Barlow Condensed',sans-serif" font-weight="900" font-size="16" fill="var(--accent)">COMPRAS</text>
+    </svg>
     <form id="form-login">
       <div style="margin-bottom: 12px">
         <label for="login">Usuário</label>

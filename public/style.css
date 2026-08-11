@@ -37,7 +37,7 @@ body {
 ::-webkit-scrollbar-track { background: var(--bg); }
 ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
 
-h1, h2, h3, .brand-mark, .kpi-value { font-family: var(--fh); }
+h1, h2, h3, .kpi-value { font-family: var(--fh); }
 
 .app {
   min-height: 100vh;
@@ -61,24 +61,6 @@ h1, h2, h3, .brand-mark, .kpi-value { font-family: var(--fh); }
 .slogo {
   padding: 16px 18px;
   border-bottom: 1px solid var(--border);
-}
-
-.slogo .tag {
-  font: 700 9px/1 var(--fh);
-  letter-spacing: 3px;
-  color: var(--accent);
-  text-transform: uppercase;
-}
-
-.slogo .name,
-.brand-mark {
-  font: 900 20px/1.1 var(--fh);
-  margin-top: 3px;
-}
-
-.slogo .name span,
-.brand-sub {
-  color: var(--accent);
 }
 
 .snav { padding: 12px; flex: 1; overflow-y: auto; }
