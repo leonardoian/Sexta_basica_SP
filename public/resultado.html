@@ -62,6 +62,16 @@
         <label>Pesquisar item</label>
         <input type="text" id="input-busca" placeholder="Digite o código ou a descrição...">
       </div>
+      <div style="width: 220px">
+        <label>Filtrar por pedido</label>
+        <select id="sel-filtro-pedido">
+          <option value="">Todos os itens</option>
+          <option value="com">Com pedido</option>
+          <option value="sem">Sem pedido</option>
+          <option value="pendente">Com pedido pendente</option>
+          <option value="entregue">Totalmente entregue</option>
+        </select>
+      </div>
     </div>
     <div style="overflow-x: auto">
     <table>
@@ -186,6 +196,36 @@
 
   function getFiltroBusca() {
     return document.getElementById("input-busca").value.trim().toLowerCase();
+  }
+
+  function getFiltroPedido() {
+    return document.getElementById("sel-filtro-pedido").value;
+  }
+
+  function passaFiltroPedido(pedidos, filtro) {
+    if (!filtro) return true;
+    const totalmenteEntregue = pedidos.length > 0 && pedidos.every((p) => p.entregue);
+    if (filtro === "com") return pedidos.length > 0;
+    if (filtro === "sem") return pedidos.length === 0;
+    if (filtro === "entregue") return totalmenteEntregue;
+    if (filtro === "pendente") return pedidos.length > 0 && !totalmenteEntregue;
+    return true;
+  }
+
+  // aplica busca por texto + filtro de pedido sobre as linhas já ajustadas
+  // pelo fator de meses de estoque — usado tanto na tabela quanto no export.
+  function linhasVisiveis() {
+    const termo = getFiltroBusca();
+    const filtroPedido = getFiltroPedido();
+    return linhasAjustadas().filter((l) => {
+      const passaBusca =
+        !termo ||
+        l.componente_codigo.toLowerCase().includes(termo) ||
+        l.componente_descricao.toLowerCase().includes(termo);
+      if (!passaBusca) return false;
+      const pedidos = pedidosPorMaterialId.get(String(l.componente_id)) || [];
+      return passaFiltroPedido(pedidos, filtroPedido);
+    });
   }
 
   function linhaResultado(l) {
@@ -340,14 +380,7 @@
 
   function renderTabela() {
     const linhas = linhasAjustadas();
-    const termo = getFiltroBusca();
-    const linhasFiltradas = termo
-      ? linhas.filter(
-          (l) =>
-            l.componente_codigo.toLowerCase().includes(termo) ||
-            l.componente_descricao.toLowerCase().includes(termo)
-        )
-      : linhas;
+    const linhasFiltradas = linhasVisiveis();
 
     const tbody = document.getElementById("tbody");
     tbody.innerHTML = linhasFiltradas.map(linhaResultado).join("");
@@ -357,7 +390,7 @@
       vazioEl.textContent = "Nenhum componente calculado para este programa.";
       vazioEl.style.display = "block";
     } else if (linhasFiltradas.length === 0) {
-      vazioEl.textContent = "Nenhum item encontrado para essa busca.";
+      vazioEl.textContent = "Nenhum item encontrado para esse filtro.";
       vazioEl.style.display = "block";
     } else {
       vazioEl.style.display = "none";
@@ -373,17 +406,11 @@
 
   document.getElementById("input-meses").addEventListener("input", renderTabela);
   document.getElementById("input-busca").addEventListener("input", renderTabela);
+  document.getElementById("sel-filtro-pedido").addEventListener("change", renderTabela);
 
   document.getElementById("btn-exportar").addEventListener("click", () => {
     const fator = getFatorMeses();
-    const termo = getFiltroBusca();
-    const base = termo
-      ? linhasAjustadas().filter(
-          (l) =>
-            l.componente_codigo.toLowerCase().includes(termo) ||
-            l.componente_descricao.toLowerCase().includes(termo)
-        )
-      : linhasAjustadas();
+    const base = linhasVisiveis();
     const dados = base.map((l) => {
       const pedidos = pedidosPorMaterialId.get(String(l.componente_id)) || [];
       const totalPedido = pedidos.reduce((acc, p) => acc + Number(p.qtd_pedida || 0), 0);
