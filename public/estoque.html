@@ -30,7 +30,10 @@
         <input type="file" id="input-importar" accept=".xlsx,.xls,.csv">
         <span class="muted" id="msg-importar"></span>
       </div>
-      <button type="button" class="secondary" id="btn-modelo">⬇ Baixar modelo de planilha</button>
+      <div class="row" style="gap: 8px">
+        <button type="button" class="secondary" id="btn-exportar">⬇ Exportar estoque atual</button>
+        <button type="button" class="secondary" id="btn-modelo">⬇ Baixar modelo de planilha</button>
+      </div>
     </div>
 
     <div style="margin-bottom: 16px; max-width: 340px">
@@ -51,6 +54,23 @@
 </div>
 <script src="/app.js"></script>
 <script>
+  document.getElementById("btn-exportar").addEventListener("click", () => {
+    const termo = getBusca();
+    const linhas = linhasAtuais.filter(
+      (l) => !termo || l.codigo.toLowerCase().includes(termo) || l.descricao.toLowerCase().includes(termo)
+    );
+    const dados = linhas.map((l) => ({
+      MATERIAL: l.codigo,
+      DESCRICAO: l.descricao,
+      UMC: l.umc,
+      ESTOQUE: Number(l.qtd_atual),
+    }));
+    const ws = XLSX.utils.json_to_sheet(dados);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Estoque");
+    XLSX.writeFile(wb, `estoque-atual-planej-compras-${new Date().toISOString().slice(0, 10)}.xlsx`);
+  });
+
   document.getElementById("btn-modelo").addEventListener("click", () => {
     const ws = XLSX.utils.aoa_to_sheet([
       ["MATERIAL", "DESCRICAO", "UMC", "ESTOQUE"],
