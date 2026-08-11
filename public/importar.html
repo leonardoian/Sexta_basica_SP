@@ -7,6 +7,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;900&family=Barlow:wght@300;400;500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/style.css">
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="/app.js"></script>
 <style>
   body { padding: 28px; }
   .wrap { max-width: 1080px; margin: 0 auto; }
@@ -473,7 +474,8 @@ document.querySelectorAll(".tab").forEach((t) => t.addEventListener("click", () 
 }));
 
 // ---------- envio ----------
-async function post(path, body) {
+async function post(path, body, onProgress) {
+  if (onProgress) return apiUpload("/api/" + path, body, onProgress);
   const token = getToken();
   const r = await fetch("/api/" + path, {
     method: "POST",
@@ -504,9 +506,12 @@ $("send").addEventListener("click", async () => {
 
   // 1) referências / lista técnica primeiro (programa depende delas)
   if (modoRefs === "sap") {
-    $("status").textContent = "Enviando lista técnica (pode levar alguns segundos)...";
+    $("status").textContent = "Enviando lista técnica... 0%";
     try {
-      const r = await post("boms?recurso=lista-tecnica", { contentBase64: fileBase64 });
+      const r = await post("boms?recurso=lista-tecnica", { contentBase64: fileBase64 }, (pct) => {
+        $("barfill").style.width = Math.round(pct * 0.4) + "%";
+        $("status").textContent = `Enviando lista técnica... ${pct}%`;
+      });
       resumo.push(`${r.acabados} referência(s) e ${r.componentes} componente(s), ${r.itensGravados} itens de lista técnica`);
       $("barfill").style.width = "40%";
     } catch (e) {
@@ -570,9 +575,13 @@ $("send").addEventListener("click", async () => {
 
   // 3) estoque por depósito
   if (DATA.estoque.length) {
-    $("status").textContent = "Enviando estoque por depósito...";
+    const startPct = parseInt($("barfill").style.width) || 0;
+    $("status").textContent = "Enviando estoque por depósito... 0%";
     try {
-      const r = await post("estoque?recurso=importar-depositos", { contentBase64: fileBase64 });
+      const r = await post("estoque?recurso=importar-depositos", { contentBase64: fileBase64 }, (pct) => {
+        $("barfill").style.width = startPct + Math.round((pct / 100) * (100 - startPct)) + "%";
+        $("status").textContent = `Enviando estoque por depósito... ${pct}%`;
+      });
       resumo.push(`${r.materiaisAtualizados} material(is) de estoque (${r.depositos.join(", ")})`);
       $("barfill").style.width = "100%";
     } catch (e) {

@@ -385,6 +385,22 @@ tr.ok td.valor-comprar { color: var(--green); font-weight: 700; }
 .muted { color: var(--muted); font-size: 12px; }
 .erro { color: var(--red); font-size: 12px; }
 
+.progress-bar {
+  height: 6px;
+  background: var(--border);
+  overflow: hidden;
+  margin-top: 8px;
+  max-width: 320px;
+}
+
+.progress-bar-fill {
+  display: block;
+  height: 100%;
+  width: 0%;
+  background: var(--accent);
+  transition: width .15s ease;
+}
+
 .alert { padding: 10px 14px; border-left: 3px solid; margin-bottom: 14px; font-size: 13px; }
 .alert.as, .alert.s { border-color: var(--green); background: rgba(16, 185, 129, .08); color: var(--green); }
 .alert.ae, .alert.e { border-color: var(--red); background: rgba(239, 68, 68, .08); color: var(--red); }

@@ -159,6 +159,42 @@ async function api(path, opts = {}) {
   return data;
 }
 
+// POST com acompanhamento de progresso de envio (0-100). `fetch` não expõe
+// progresso de upload, então usa XMLHttpRequest aqui — só nesse caso.
+// `onProgress(pct)` é chamado a cada pedaço enviado.
+function apiUpload(path, body, onProgress) {
+  const token = getToken();
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open("POST", path);
+    xhr.setRequestHeader("Content-Type", "application/json");
+    if (token) xhr.setRequestHeader("Authorization", "Bearer " + token);
+    xhr.upload.addEventListener("progress", (e) => {
+      if (onProgress && e.lengthComputable) onProgress(Math.round((e.loaded / e.total) * 100));
+    });
+    xhr.addEventListener("load", () => {
+      if (xhr.status === 401) {
+        logout();
+        reject(new Error("Sessão expirada. Faça login novamente."));
+        return;
+      }
+      let data = null;
+      try {
+        data = JSON.parse(xhr.responseText);
+      } catch {
+        data = null;
+      }
+      if (xhr.status >= 200 && xhr.status < 300) {
+        resolve(data);
+      } else {
+        reject(new Error((data && data.error) || `Erro na requisição (${xhr.status})`));
+      }
+    });
+    xhr.addEventListener("error", () => reject(new Error("Falha de rede na requisição.")));
+    xhr.send(JSON.stringify(body));
+  });
+}
+
 // Combobox com busca por texto (digita e filtra), no lugar de um <select>
 // nativo com lista longa. `opcoes` é [{ value, label }]. Retorna um objeto
 // com getter/setter de `value` pra ler/pré-preencher a seleção atual.

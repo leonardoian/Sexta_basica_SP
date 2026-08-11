@@ -28,6 +28,7 @@
       <div>
         <label>Importar planilha</label>
         <input type="file" id="input-importar" accept=".xlsx,.xls,.csv">
+        <div class="progress-bar" id="progress-importar" style="display:none"><span class="progress-bar-fill" id="progress-importar-fill"></span></div>
         <span class="muted" id="msg-importar"></span>
       </div>
       <div class="row" style="gap: 8px">
@@ -135,13 +136,17 @@
   document.getElementById("input-importar").addEventListener("change", async (e) => {
     const file = e.target.files[0];
     const msgEl = document.getElementById("msg-importar");
+    const barWrap = document.getElementById("progress-importar");
+    const barFill = document.getElementById("progress-importar-fill");
     if (!file) return;
-    msgEl.textContent = "Importando...";
+    msgEl.textContent = "Lendo arquivo...";
+    barWrap.style.display = "block";
+    barFill.style.width = "0%";
     try {
       const contentBase64 = await fileParaBase64(file);
-      const data = await api("/api/estoque?recurso=importar-simples", {
-        method: "POST",
-        body: JSON.stringify({ contentBase64 }),
+      const data = await apiUpload("/api/estoque?recurso=importar-simples", { contentBase64 }, (pct) => {
+        barFill.style.width = pct + "%";
+        msgEl.textContent = `Enviando... ${pct}%`;
       });
       msgEl.textContent =
         `${data.atualizados}/${data.total} atualizados` +
@@ -150,6 +155,7 @@
     } catch (err) {
       msgEl.textContent = err.message;
     } finally {
+      barWrap.style.display = "none";
       e.target.value = "";
     }
   });
