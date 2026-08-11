@@ -135,21 +135,29 @@ async function runInit(sql) {
     UNIQUE (programa_id, material_id)
   )`;
 
-  // Acompanhamento de pedido de compra por (programa, componente): se já foi
-  // feito, número do pedido no fornecedor, quantidade pedida e previsão de
-  // chegada. Uma linha por componente dentro de um programa — não é uma
-  // ordem de compra formal, só o controle que o PCP preenche manualmente.
+  // Acompanhamento de pedidos de compra por (programa, componente). Um
+  // componente pode ter vários pedidos (parciais, de fornecedores diferentes
+  // etc.) — cada linha é um pedido: número, quantidade pedida, previsão de
+  // chegada e se já foi entregue. Não é uma ordem de compra formal, só o
+  // controle manual que o PCP preenche.
   await sql`CREATE TABLE IF NOT EXISTS pedidos_compra (
     id                BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     programa_id       BIGINT NOT NULL REFERENCES programas(id) ON DELETE CASCADE,
     material_id       BIGINT NOT NULL REFERENCES materiais(id) ON DELETE CASCADE,
-    feito             BOOLEAN NOT NULL DEFAULT false,
     numero_pedido     TEXT,
     qtd_pedida        NUMERIC(14,2),
     previsao_entrega  DATE,
-    atualizado_em     TIMESTAMPTZ NOT NULL DEFAULT now(),
-    UNIQUE (programa_id, material_id)
+    entregue          BOOLEAN NOT NULL DEFAULT false,
+    criado_em         TIMESTAMPTZ NOT NULL DEFAULT now(),
+    atualizado_em     TIMESTAMPTZ NOT NULL DEFAULT now()
   )`;
+
+  // migração: versão anterior permitia só 1 pedido por (programa, componente)
+  // e usava um campo "feito" — agora vira lista, com "entregue" por pedido.
+  await sql`ALTER TABLE pedidos_compra DROP CONSTRAINT IF EXISTS pedidos_compra_programa_id_material_id_key`;
+  await sql`ALTER TABLE pedidos_compra ADD COLUMN IF NOT EXISTS entregue BOOLEAN NOT NULL DEFAULT false`;
+  await sql`ALTER TABLE pedidos_compra ADD COLUMN IF NOT EXISTS criado_em TIMESTAMPTZ NOT NULL DEFAULT now()`;
+  await sql`ALTER TABLE pedidos_compra DROP COLUMN IF EXISTS feito`;
 
   await sql`CREATE INDEX IF NOT EXISTS idx_bom_itens_bom        ON bom_itens(bom_id)`;
   await sql`CREATE INDEX IF NOT EXISTS idx_bom_itens_componente ON bom_itens(componente_id)`;

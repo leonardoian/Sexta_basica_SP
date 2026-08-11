@@ -127,7 +127,12 @@
       api(`/api/pedidos?programaId=${programaId}`),
     ]);
     linhasAtuais = linhas;
-    pedidosPorMaterialId = new Map(pedidos.map((p) => [String(p.material_id), p]));
+    pedidosPorMaterialId = new Map();
+    pedidos.forEach((p) => {
+      const key = String(p.material_id);
+      if (!pedidosPorMaterialId.has(key)) pedidosPorMaterialId.set(key, []);
+      pedidosPorMaterialId.get(key).push(p);
+    });
     editandoPedidoId = null;
     renderTabela();
   }
@@ -185,7 +190,7 @@
 
   function linhaResultado(l) {
     const componenteId = String(l.componente_id);
-    const pedido = pedidosPorMaterialId.get(componenteId);
+    const pedidos = pedidosPorMaterialId.get(componenteId) || [];
     const linha = `
       <tr class="${l.a_comprar > 0 ? "a-comprar" : "ok"}">
         <td>${l.componente_codigo}</td>
@@ -194,41 +199,66 @@
         <td>${formatNum(l.necessidade_total)}</td>
         <td>${formatNum(l.estoque_atual)}</td>
         <td class="valor-comprar">${formatNum(l.a_comprar)}</td>
-        <td>${
-          pedido && pedido.feito
-            ? `<span style="color: var(--green)">Nº ${pedido.numero_pedido || "-"} · ${formatNum(pedido.qtd_pedida || 0)} · chega ${formatarData(pedido.previsao_entrega) || "sem previsão"}</span>`
-            : `<span class="muted">Sem pedido</span>`
-        }</td>
-        <td><button type="button" class="secondary" onclick="abrirEdicaoPedido('${componenteId}')">${pedido ? "Editar" : "Registrar"} pedido</button></td>
+        <td>${resumoPedidos(pedidos)}</td>
+        <td><button type="button" class="secondary" onclick="abrirEdicaoPedido('${componenteId}')">${pedidos.length ? "Ver pedidos" : "Registrar pedido"}</button></td>
       </tr>`;
-    return editandoPedidoId === componenteId ? linha + linhaEdicaoPedido(componenteId, pedido) : linha;
+    return editandoPedidoId === componenteId ? linha + linhaEdicaoPedido(componenteId, pedidos) : linha;
   }
 
-  function linhaEdicaoPedido(componenteId, pedido) {
+  function resumoPedidos(pedidos) {
+    if (pedidos.length === 0) return `<span class="muted">Sem pedido</span>`;
+    const totalPedido = pedidos.reduce((acc, p) => acc + Number(p.qtd_pedida || 0), 0);
+    const entregues = pedidos.filter((p) => p.entregue).length;
+    const cor = entregues === pedidos.length ? "var(--green)" : "var(--blue)";
+    return `<span style="color: ${cor}">${pedidos.length} pedido${pedidos.length > 1 ? "s" : ""} · ${formatNum(totalPedido)} pedido${entregues ? ` · ${entregues}/${pedidos.length} entregue${entregues > 1 ? "s" : ""}` : ""}</span>`;
+  }
+
+  function linhaEdicaoPedido(componenteId, pedidos) {
+    const linhasPedidos = pedidos
+      .map(
+        (p) => `
+        <tr>
+          <td>${p.numero_pedido || "-"}</td>
+          <td>${formatNum(p.qtd_pedida || 0)}</td>
+          <td>${formatarData(p.previsao_entrega) || "-"}</td>
+          <td>${
+            p.entregue
+              ? `<span style="color: var(--green)">Entregue</span> <button type="button" class="secondary" style="margin-left:6px" onclick="marcarEntregue(${p.id}, '${componenteId}', false)">Desfazer</button>`
+              : `<button type="button" onclick="marcarEntregue(${p.id}, '${componenteId}', true)">Marcar como entregue</button>`
+          }</td>
+          <td><button type="button" class="ghost" onclick="removerPedido(${p.id}, '${componenteId}')">Remover</button></td>
+        </tr>`
+      )
+      .join("");
+
     return `
       <tr>
         <td colspan="8">
           <div style="padding: 14px; background: var(--surface-2)">
-            <form class="grid cols-4" onsubmit="salvarPedido(event, '${componenteId}')">
-              <div style="flex-direction: row; align-items: center; gap: 8px">
-                <input type="checkbox" id="pedido-feito-${componenteId}" style="width:auto" ${pedido && pedido.feito ? "checked" : ""}>
-                <label style="margin:0" for="pedido-feito-${componenteId}">Pedido feito</label>
-              </div>
+            ${
+              pedidos.length
+                ? `<table style="margin-bottom: 16px">
+                    <thead><tr><th>Nº pedido</th><th>Qtd. pedida</th><th>Previsão</th><th>Status</th><th></th></tr></thead>
+                    <tbody>${linhasPedidos}</tbody>
+                  </table>`
+                : `<p class="muted" style="margin-bottom: 16px">Nenhum pedido registrado ainda para este item.</p>`
+            }
+            <form class="grid cols-4" onsubmit="adicionarPedido(event, '${componenteId}')">
               <div>
                 <label>Nº do pedido</label>
-                <input type="text" id="pedido-numero-${componenteId}" value="${pedido && pedido.numero_pedido ? pedido.numero_pedido : ""}">
+                <input type="text" id="novo-pedido-numero-${componenteId}" placeholder="ex: PC-4521">
               </div>
               <div>
                 <label>Qtd. pedida</label>
-                <input type="number" step="any" id="pedido-qtd-${componenteId}" value="${pedido && pedido.qtd_pedida != null ? formatNum(pedido.qtd_pedida) : ""}">
+                <input type="number" step="any" id="novo-pedido-qtd-${componenteId}" placeholder="ex: 1000">
               </div>
               <div>
                 <label>Previsão de chegada</label>
-                <input type="date" id="pedido-data-${componenteId}" value="${pedido && pedido.previsao_entrega ? String(pedido.previsao_entrega).slice(0, 10) : ""}">
+                <input type="date" id="novo-pedido-data-${componenteId}">
               </div>
-              <div style="grid-column: 1 / -1; display: flex; gap: 8px">
-                <button type="submit">Salvar pedido</button>
-                <button type="button" class="secondary" onclick="cancelarEdicaoPedido()">Cancelar</button>
+              <div style="display: flex; align-items: flex-end; gap: 8px">
+                <button type="submit">+ Adicionar pedido</button>
+                <button type="button" class="secondary" onclick="cancelarEdicaoPedido()">Fechar</button>
               </div>
             </form>
           </div>
@@ -246,28 +276,63 @@
     renderTabela();
   }
 
-  async function salvarPedido(event, componenteId) {
+  function guardarPedidoNaLista(componenteId, pedido) {
+    if (!pedidosPorMaterialId.has(componenteId)) pedidosPorMaterialId.set(componenteId, []);
+    const lista = pedidosPorMaterialId.get(componenteId);
+    const idx = lista.findIndex((p) => String(p.id) === String(pedido.id));
+    if (idx >= 0) lista[idx] = pedido;
+    else lista.push(pedido);
+  }
+
+  async function adicionarPedido(event, componenteId) {
     event.preventDefault();
-    const feito = document.getElementById(`pedido-feito-${componenteId}`).checked;
-    const numeroPedido = document.getElementById(`pedido-numero-${componenteId}`).value.trim();
-    const qtdPedidaRaw = document.getElementById(`pedido-qtd-${componenteId}`).value;
-    const previsaoEntrega = document.getElementById(`pedido-data-${componenteId}`).value || null;
+    const numeroPedido = document.getElementById(`novo-pedido-numero-${componenteId}`).value.trim();
+    const qtdPedidaRaw = document.getElementById(`novo-pedido-qtd-${componenteId}`).value;
+    const previsaoEntrega = document.getElementById(`novo-pedido-data-${componenteId}`).value || null;
     try {
       const pedido = await api("/api/pedidos", {
         method: "POST",
         body: JSON.stringify({
           programaId: programaIdAtual,
           materialId: componenteId,
-          feito,
           numeroPedido: numeroPedido || null,
           qtdPedida: qtdPedidaRaw === "" ? null : Number(qtdPedidaRaw),
           previsaoEntrega,
         }),
       });
-      pedidosPorMaterialId.set(componenteId, pedido);
-      editandoPedidoId = null;
+      guardarPedidoNaLista(componenteId, pedido);
       renderTabela();
-      toast("Pedido salvo.", "ok");
+      toast("Pedido adicionado.", "ok");
+    } catch (err) {
+      toast(err.message, "err");
+    }
+  }
+
+  async function marcarEntregue(pedidoId, componenteId, entregue) {
+    try {
+      const pedido = await api("/api/pedidos", {
+        method: "PUT",
+        body: JSON.stringify({ id: pedidoId, entregue }),
+      });
+      guardarPedidoNaLista(componenteId, pedido);
+      renderTabela();
+      toast(entregue ? "Pedido marcado como entregue." : "Pedido marcado como pendente.", "ok");
+    } catch (err) {
+      toast(err.message, "err");
+    }
+  }
+
+  async function removerPedido(pedidoId, componenteId) {
+    if (!confirm("Remover este pedido?")) return;
+    try {
+      await api("/api/pedidos", { method: "DELETE", body: JSON.stringify({ id: pedidoId }) });
+      const lista = pedidosPorMaterialId.get(componenteId) || [];
+      pedidosPorMaterialId.set(
+        componenteId,
+        lista.filter((p) => String(p.id) !== String(pedidoId))
+      );
+      renderTabela();
+      toast("Pedido removido.", "ok");
     } catch (err) {
       toast(err.message, "err");
     }
@@ -320,7 +385,8 @@
         )
       : linhasAjustadas();
     const dados = base.map((l) => {
-      const pedido = pedidosPorMaterialId.get(String(l.componente_id));
+      const pedidos = pedidosPorMaterialId.get(String(l.componente_id)) || [];
+      const totalPedido = pedidos.reduce((acc, p) => acc + Number(p.qtd_pedida || 0), 0);
       return {
         Componente: l.componente_codigo,
         Descrição: l.componente_descricao,
@@ -329,10 +395,11 @@
         "Necessidade total": l.necessidade_total,
         "Estoque atual": l.estoque_atual,
         "A comprar": l.a_comprar,
-        "Pedido feito": pedido && pedido.feito ? "Sim" : "Não",
-        "Nº do pedido": (pedido && pedido.numero_pedido) || "",
-        "Qtd. pedida": pedido && pedido.qtd_pedida != null ? pedido.qtd_pedida : "",
-        "Previsão de chegada": pedido ? formatarData(pedido.previsao_entrega) : "",
+        "Qtd. de pedidos": pedidos.length,
+        "Nº dos pedidos": pedidos.map((p) => p.numero_pedido || "-").join("; "),
+        "Total pedido": totalPedido || "",
+        Entregues: pedidos.length ? `${pedidos.filter((p) => p.entregue).length}/${pedidos.length}` : "",
+        "Previsões de chegada": pedidos.map((p) => formatarData(p.previsao_entrega)).filter(Boolean).join("; "),
       };
     });
     const ws = XLSX.utils.json_to_sheet(dados);
