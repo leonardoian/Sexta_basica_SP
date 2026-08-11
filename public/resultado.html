@@ -103,6 +103,7 @@
   let programaIdAtual = null;
   let pedidosPorMaterialId = new Map();
   let editandoPedidoId = null;
+  let editandoPedidoLinhaId = null;
 
   async function carregarProgramas() {
     const programas = await api("/api/programas");
@@ -254,23 +255,48 @@
     return `<span style="color: ${cor}">${pedidos.length} pedido${pedidos.length > 1 ? "s" : ""} · ${formatNum(totalPedido)} pedido${entregues ? ` · ${entregues}/${pedidos.length} entregue${entregues > 1 ? "s" : ""}` : ""}</span>`;
   }
 
-  function linhaEdicaoPedido(componenteId, pedidos) {
-    const linhasPedidos = pedidos
-      .map(
-        (p) => `
+  function linhaPedido(p, componenteId) {
+    if (editandoPedidoLinhaId === p.id) {
+      return `
         <tr>
-          <td>${p.numero_pedido || "-"}</td>
-          <td>${formatNum(p.qtd_pedida || 0)}</td>
-          <td>${formatarData(p.previsao_entrega) || "-"}</td>
-          <td>${
-            p.entregue
-              ? `<span style="color: var(--green)">Entregue</span> <button type="button" class="secondary" style="margin-left:6px" onclick="marcarEntregue(${p.id}, '${componenteId}', false)">Desfazer</button>`
-              : `<button type="button" onclick="marcarEntregue(${p.id}, '${componenteId}', true)">Marcar como entregue</button>`
-          }</td>
-          <td><button type="button" class="ghost" onclick="removerPedido(${p.id}, '${componenteId}')">Remover</button></td>
-        </tr>`
-      )
-      .join("");
+          <td colspan="5">
+            <form class="grid cols-4" style="align-items: flex-end" onsubmit="salvarEdicaoPedido(event, ${p.id}, '${componenteId}')">
+              <div>
+                <label>Nº do pedido</label>
+                <input type="text" id="editar-pedido-numero-${p.id}" value="${p.numero_pedido || ""}">
+              </div>
+              <div>
+                <label>Qtd. pedida</label>
+                <input type="number" step="any" id="editar-pedido-qtd-${p.id}" value="${p.qtd_pedida != null ? formatNum(p.qtd_pedida) : ""}">
+              </div>
+              <div>
+                <label>Previsão de chegada</label>
+                <input type="date" id="editar-pedido-data-${p.id}" value="${p.previsao_entrega ? String(p.previsao_entrega).slice(0, 10) : ""}">
+              </div>
+              <div style="display: flex; gap: 8px">
+                <button type="submit">Salvar</button>
+                <button type="button" class="secondary" onclick="cancelarEdicaoPedidoLinha()">Cancelar</button>
+              </div>
+            </form>
+          </td>
+        </tr>`;
+    }
+    return `
+      <tr>
+        <td>${p.numero_pedido || "-"}</td>
+        <td>${formatNum(p.qtd_pedida || 0)}</td>
+        <td>${formatarData(p.previsao_entrega) || "-"}</td>
+        <td>${
+          p.entregue
+            ? `<span style="color: var(--green)">Entregue</span> <button type="button" class="secondary" style="margin-left:6px" onclick="marcarEntregue(${p.id}, '${componenteId}', false)">Desfazer</button>`
+            : `<button type="button" onclick="marcarEntregue(${p.id}, '${componenteId}', true)">Marcar como entregue</button>`
+        }</td>
+        <td><button type="button" class="secondary" onclick="editarPedidoLinha(${p.id})">Editar</button> <button type="button" class="ghost" onclick="removerPedido(${p.id}, '${componenteId}')">Remover</button></td>
+      </tr>`;
+  }
+
+  function linhaEdicaoPedido(componenteId, pedidos) {
+    const linhasPedidos = pedidos.map((p) => linhaPedido(p, componenteId)).join("");
 
     return `
       <tr>
@@ -309,12 +335,48 @@
 
   function abrirEdicaoPedido(componenteId) {
     editandoPedidoId = componenteId;
+    editandoPedidoLinhaId = null;
     renderTabela();
   }
 
   function cancelarEdicaoPedido() {
     editandoPedidoId = null;
+    editandoPedidoLinhaId = null;
     renderTabela();
+  }
+
+  function editarPedidoLinha(pedidoId) {
+    editandoPedidoLinhaId = pedidoId;
+    renderTabela();
+  }
+
+  function cancelarEdicaoPedidoLinha() {
+    editandoPedidoLinhaId = null;
+    renderTabela();
+  }
+
+  async function salvarEdicaoPedido(event, pedidoId, componenteId) {
+    event.preventDefault();
+    const numeroPedido = document.getElementById(`editar-pedido-numero-${pedidoId}`).value.trim();
+    const qtdPedidaRaw = document.getElementById(`editar-pedido-qtd-${pedidoId}`).value;
+    const previsaoEntrega = document.getElementById(`editar-pedido-data-${pedidoId}`).value || null;
+    try {
+      const pedido = await api("/api/pedidos", {
+        method: "PUT",
+        body: JSON.stringify({
+          id: pedidoId,
+          numeroPedido: numeroPedido || null,
+          qtdPedida: qtdPedidaRaw === "" ? null : Number(qtdPedidaRaw),
+          previsaoEntrega,
+        }),
+      });
+      guardarPedidoNaLista(componenteId, pedido);
+      editandoPedidoLinhaId = null;
+      renderTabela();
+      toast("Pedido atualizado.", "ok");
+    } catch (err) {
+      toast(err.message, "err");
+    }
   }
 
   function guardarPedidoNaLista(componenteId, pedido) {
